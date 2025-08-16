@@ -83,7 +83,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Check for stored user on mount
     const storedUser = localStorage.getItem("geovision_user")
     if (storedUser) {
-      setUser(JSON.parse(storedUser))
+      try {
+        const userData = JSON.parse(storedUser)
+        setUser(userData)
+        document.cookie = `geovision_user=${JSON.stringify(userData)}; path=/; max-age=86400`
+      } catch (error) {
+        localStorage.removeItem("geovision_user")
+      }
     }
     setIsLoading(false)
   }, [])
@@ -95,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (userData) {
         setUser(userData)
         localStorage.setItem("geovision_user", JSON.stringify(userData))
+        document.cookie = `geovision_user=${JSON.stringify(userData)}; path=/; max-age=86400`
         return true
       }
     }
@@ -104,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null)
     localStorage.removeItem("geovision_user")
+    document.cookie = "geovision_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
   }
 
   const hasPermission = (permission: string): boolean => {
