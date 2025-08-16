@@ -75,44 +75,17 @@ const mockUsers = [
   },
 ]
 
-function setCookie(name: string, value: string, days = 1) {
-  if (typeof document !== "undefined") {
-    const expires = new Date()
-    expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000)
-    document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`
-  }
-}
-
-function deleteCookie(name: string) {
-  if (typeof document !== "undefined") {
-    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const checkAuth = () => {
-      try {
-        const storedUser = localStorage.getItem("geovision_user")
-        if (storedUser) {
-          const userData = JSON.parse(storedUser)
-          setUser(userData)
-          // Sincronizar con cookie
-          setCookie("geovision_user", JSON.stringify(userData))
-        }
-      } catch (error) {
-        console.error("Error loading user data:", error)
-        localStorage.removeItem("geovision_user")
-        deleteCookie("geovision_user")
-      } finally {
-        setIsLoading(false)
-      }
+    // Check for stored user on mount
+    const storedUser = localStorage.getItem("geovision_user")
+    if (storedUser) {
+      setUser(JSON.parse(storedUser))
     }
-
-    checkAuth()
+    setIsLoading(false)
   }, [])
 
   const login = async (email: string, password: string): Promise<boolean> => {
@@ -122,7 +95,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (userData) {
         setUser(userData)
         localStorage.setItem("geovision_user", JSON.stringify(userData))
-        setCookie("geovision_user", JSON.stringify(userData))
         return true
       }
     }
@@ -132,7 +104,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null)
     localStorage.removeItem("geovision_user")
-    deleteCookie("geovision_user")
   }
 
   const hasPermission = (permission: string): boolean => {

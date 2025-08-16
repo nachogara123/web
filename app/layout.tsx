@@ -4,6 +4,8 @@ import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
 import "./globals.css"
 import { AuthProvider } from "@/hooks/use-auth"
+import { Sidebar } from "@/components/sidebar"
+import { ProtectedRoute } from "@/components/protected-route"
 
 export const metadata: Metadata = {
   title: "GeoVision - Sistema de Gestión Geográfica",
@@ -28,7 +30,12 @@ html {
         `}</style>
       </head>
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <ProtectedRoute>
+            <Sidebar />
+            <div className="pt-16">{children}</div>
+          </ProtectedRoute>
+        </AuthProvider>
       </body>
     </html>
   )
