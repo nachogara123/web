@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Dialog,
   DialogContent,
@@ -23,8 +24,6 @@ import {
   AlertTriangle,
   CheckCircle,
   MapPin,
-  BarChart3,
-  FileText,
   Plus,
   Calendar,
   Route,
@@ -33,6 +32,10 @@ import {
   UserCheck,
   AlertCircleIcon,
   Target,
+  Settings,
+  UserPlus,
+  Map,
+  ArrowRight,
 } from "lucide-react"
 
 interface Team {
@@ -40,11 +43,23 @@ interface Team {
   name: string
   date: string
   comuna: string
-  mainRoute: string
-  backupRoute: string
-  meetingPoint: string
+  mainRoute?: string
+  backupRoute?: string
+  meetingPoint?: string
   members: string[]
-  status: "active" | "completed" | "pending"
+  status: "draft" | "route_pending" | "active" | "completed"
+  supervisorId: string
+  routeCoordinates?: { lat: number; lng: number }[]
+}
+
+interface Executive {
+  id: string
+  name: string
+  email: string
+  status: "active" | "bajo" | "inactive"
+  canSelectOwnRoute: boolean
+  canJoinTeams: boolean
+  supervisorId: string
 }
 
 interface ExecutiveLocation {
@@ -57,6 +72,14 @@ interface ExecutiveLocation {
   distance: number
   isInZone: boolean
   lastUpdate: string
+}
+
+interface RouteVisualization {
+  teamId: string
+  teamName: string
+  date: string
+  coordinates: { lat: number; lng: number }[]
+  color: string
 }
 
 const comunas = [
@@ -75,45 +98,63 @@ const comunas = [
   "Lo Barnechea",
 ]
 
-const routes = [
-  "Ruta Norte A",
-  "Ruta Norte B",
-  "Ruta Sur A",
-  "Ruta Sur B",
-  "Ruta Centro",
-  "Ruta Oriente",
-  "Ruta Poniente",
-  "Ruta Cordillera",
-  "Ruta Costa",
-]
-
-const executives = [
-  "Ana Ejecutiva",
-  "Luis Ejecutivo",
-  "Carmen Vendedora",
-  "Pedro Técnico",
-  "María González",
-  "Carlos Ruiz",
-  "Sofia López",
-  "Diego Martínez",
-]
-
 export default function SupervisorPage() {
   const { user } = useAuth()
   const [teams, setTeams] = useState<Team[]>([])
+  const [executives, setExecutives] = useState<Executive[]>([])
   const [executiveLocations, setExecutiveLocations] = useState<ExecutiveLocation[]>([])
+  const [otherTeamRoutes, setOtherTeamRoutes] = useState<RouteVisualization[]>([])
   const [isCreateTeamOpen, setIsCreateTeamOpen] = useState(false)
+  const [isManageUsersOpen, setIsManageUsersOpen] = useState(false)
+  const [isRouteSelectionOpen, setIsRouteSelectionOpen] = useState(false)
+  const [selectedTeamForRoute, setSelectedTeamForRoute] = useState<Team | null>(null)
+  const [createTeamStep, setCreateTeamStep] = useState(1)
   const [newTeam, setNewTeam] = useState({
     name: "",
     date: "",
     comuna: "",
-    mainRoute: "",
-    backupRoute: "",
-    meetingPoint: "",
     members: [] as string[],
+  })
+  const [newExecutive, setNewExecutive] = useState({
+    name: "",
+    email: "",
+    status: "active" as const,
+    canSelectOwnRoute: true,
+    canJoinTeams: true,
   })
 
   useEffect(() => {
+    const mockExecutives: Executive[] = [
+      {
+        id: "1",
+        name: "Ana Ejecutiva",
+        email: "ana@empresa.com",
+        status: "active",
+        canSelectOwnRoute: true,
+        canJoinTeams: true,
+        supervisorId: user?.id || "supervisor1",
+      },
+      {
+        id: "2",
+        name: "Luis Ejecutivo",
+        email: "luis@empresa.com",
+        status: "bajo",
+        canSelectOwnRoute: false,
+        canJoinTeams: true,
+        supervisorId: user?.id || "supervisor1",
+      },
+      {
+        id: "3",
+        name: "Carmen Vendedora",
+        email: "carmen@empresa.com",
+        status: "active",
+        canSelectOwnRoute: true,
+        canJoinTeams: true,
+        supervisorId: user?.id || "supervisor1",
+      },
+    ]
+    setExecutives(mockExecutives)
+
     const mockLocations: ExecutiveLocation[] = [
       {
         id: "1",
@@ -137,21 +178,9 @@ export default function SupervisorPage() {
         isInZone: false,
         lastUpdate: "Hace 5 min",
       },
-      {
-        id: "3",
-        name: "Carmen Vendedora",
-        currentLat: -33.46,
-        currentLng: -70.68,
-        assignedZoneLat: -33.458,
-        assignedZoneLng: -70.675,
-        distance: 1.1,
-        isInZone: true,
-        lastUpdate: "Hace 1 min",
-      },
     ]
     setExecutiveLocations(mockLocations)
 
-    // Simular equipos existentes
     const mockTeams: Team[] = [
       {
         id: "1",
@@ -163,57 +192,123 @@ export default function SupervisorPage() {
         meetingPoint: "Metro Escuela Militar",
         members: ["Ana Ejecutiva", "Luis Ejecutivo"],
         status: "active",
+        supervisorId: user?.id || "supervisor1",
       },
     ]
     setTeams(mockTeams)
-  }, [])
 
-  const handleCreateTeam = () => {
-    if (!newTeam.name || !newTeam.date || !newTeam.comuna || !newTeam.mainRoute) return
+    const mockOtherRoutes: RouteVisualization[] = [
+      {
+        teamId: "other1",
+        teamName: "Equipo Sur B (Supervisor 2)",
+        date: "2024-01-16",
+        coordinates: [
+          { lat: -33.5, lng: -70.7 },
+          { lat: -33.51, lng: -70.71 },
+          { lat: -33.52, lng: -70.72 },
+        ],
+        color: "#ef4444",
+      },
+      {
+        teamId: "other2",
+        teamName: "Equipo Centro (Supervisor 3)",
+        date: "2024-01-16",
+        coordinates: [
+          { lat: -33.44, lng: -70.65 },
+          { lat: -33.45, lng: -70.66 },
+          { lat: -33.46, lng: -70.67 },
+        ],
+        color: "#f59e0b",
+      },
+    ]
+    setOtherTeamRoutes(mockOtherRoutes)
+  }, [user])
+
+  const handleCreateTeamStep1 = () => {
+    if (!newTeam.name || !newTeam.date || !newTeam.comuna || newTeam.members.length === 0) return
 
     const team: Team = {
       id: Date.now().toString(),
-      ...newTeam,
-      status: "pending",
+      name: newTeam.name,
+      date: newTeam.date,
+      comuna: newTeam.comuna,
+      members: newTeam.members,
+      status: "route_pending",
+      supervisorId: user?.id || "supervisor1",
     }
 
     setTeams([...teams, team])
-    setNewTeam({
-      name: "",
-      date: "",
-      comuna: "",
-      mainRoute: "",
-      backupRoute: "",
-      meetingPoint: "",
-      members: [],
-    })
-    setIsCreateTeamOpen(false)
+    setSelectedTeamForRoute(team)
+    setCreateTeamStep(2)
   }
 
+  const handleCompleteTeamCreation = (routeData: any) => {
+    if (!selectedTeamForRoute) return
+
+    const updatedTeam = {
+      ...selectedTeamForRoute,
+      mainRoute: routeData.mainRoute,
+      backupRoute: routeData.backupRoute,
+      meetingPoint: routeData.meetingPoint,
+      routeCoordinates: routeData.coordinates,
+      status: "active" as const,
+    }
+
+    setTeams(teams.map((t) => (t.id === selectedTeamForRoute.id ? updatedTeam : t)))
+    setIsCreateTeamOpen(false)
+    setIsRouteSelectionOpen(false)
+    setCreateTeamStep(1)
+    setSelectedTeamForRoute(null)
+    setNewTeam({ name: "", date: "", comuna: "", members: [] })
+  }
+
+  const handleAddExecutive = () => {
+    if (!newExecutive.name || !newExecutive.email) return
+
+    const executive: Executive = {
+      id: Date.now().toString(),
+      ...newExecutive,
+      supervisorId: user?.id || "supervisor1",
+    }
+
+    setExecutives([...executives, executive])
+    setNewExecutive({
+      name: "",
+      email: "",
+      status: "active",
+      canSelectOwnRoute: true,
+      canJoinTeams: true,
+    })
+  }
+
+  const updateExecutivePermissions = (execId: string, updates: Partial<Executive>) => {
+    setExecutives(executives.map((exec) => (exec.id === execId ? { ...exec, ...updates } : exec)))
+  }
+
+  const availableExecutives = executives.filter(
+    (exec) => exec.canJoinTeams && exec.supervisorId === (user?.id || "supervisor1"),
+  )
+
   const teamStats = [
-    { label: "Ejecutivos Activos", value: "12", icon: Users, color: "bg-blue-500" },
-    { label: "Rutas Completadas", value: "89%", icon: CheckCircle, color: "bg-green-500" },
-    { label: "Alertas Pendientes", value: "3", icon: AlertTriangle, color: "bg-yellow-500" },
-    { label: "Eficiencia Promedio", value: "94%", icon: TrendingUp, color: "bg-purple-500" },
-  ]
-
-  const recentActivities = [
-    { id: 1, user: "Ana Ejecutiva", action: "Completó ruta R-001", time: "Hace 15 min", status: "success" },
+    { label: "Mis Ejecutivos", value: executives.length.toString(), icon: Users, color: "bg-blue-500" },
     {
-      id: 2,
-      user: "Luis Ejecutivo",
-      action: "Reportó incidencia en zona norte",
-      time: "Hace 32 min",
-      status: "warning",
+      label: "Equipos Activos",
+      value: teams.filter((t) => t.status === "active").length.toString(),
+      icon: CheckCircle,
+      color: "bg-green-500",
     },
-    { id: 3, user: "Carmen Vendedora", action: "Actualizó feedback de cliente", time: "Hace 1 hora", status: "info" },
-    { id: 4, user: "Pedro Técnico", action: "Optimizó ruta R-045", time: "Hace 2 horas", status: "success" },
-  ]
-
-  const pendingApprovals = [
-    { id: 1, type: "Modificación de Ruta", requester: "Ana Ejecutiva", priority: "Alta" },
-    { id: 2, type: "Solicitud de Overtime", requester: "Luis Ejecutivo", priority: "Media" },
-    { id: 3, type: "Cambio de Territorio", requester: "Carmen Vendedora", priority: "Baja" },
+    {
+      label: "Fuera de Zona",
+      value: executiveLocations.filter((e) => !e.isInZone).length.toString(),
+      icon: AlertTriangle,
+      color: "bg-yellow-500",
+    },
+    {
+      label: "Autónomos",
+      value: executives.filter((e) => e.canSelectOwnRoute).length.toString(),
+      icon: TrendingUp,
+      color: "bg-purple-500",
+    },
   ]
 
   return (
@@ -222,9 +317,7 @@ export default function SupervisorPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Panel de Supervisor</h1>
-            <p className="text-gray-600 mt-1">
-              Bienvenido, {user?.name} - {user?.department}
-            </p>
+            <p className="text-gray-600 mt-1">Bienvenido, {user?.name} - Gestiona tu equipo y territorio</p>
           </div>
           <div className="flex gap-2">
             <Dialog open={isCreateTeamOpen} onOpenChange={setIsCreateTeamOpen}>
@@ -236,132 +329,269 @@ export default function SupervisorPage() {
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>Crear Nuevo Equipo</DialogTitle>
+                  <DialogTitle>Crear Nuevo Equipo - Paso {createTeamStep} de 2</DialogTitle>
                   <DialogDescription>
-                    Configura un nuevo equipo de trabajo con ruta principal, backup y punto de encuentro
+                    {createTeamStep === 1 ? "Configura los datos básicos del equipo" : "Selecciona la ruta en el mapa"}
                   </DialogDescription>
                 </DialogHeader>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="teamName">Nombre del Equipo</Label>
-                    <Input
-                      id="teamName"
-                      value={newTeam.name}
-                      onChange={(e) => setNewTeam({ ...newTeam, name: e.target.value })}
-                      placeholder="Ej: Equipo Norte A"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="teamDate">Fecha</Label>
-                    <Input
-                      id="teamDate"
-                      type="date"
-                      value={newTeam.date}
-                      onChange={(e) => setNewTeam({ ...newTeam, date: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="comuna">Comuna</Label>
-                    <Select value={newTeam.comuna} onValueChange={(value) => setNewTeam({ ...newTeam, comuna: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar comuna" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {comunas.map((comuna) => (
-                          <SelectItem key={comuna} value={comuna}>
-                            {comuna}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="mainRoute">Ruta Principal</Label>
-                    <Select
-                      value={newTeam.mainRoute}
-                      onValueChange={(value) => setNewTeam({ ...newTeam, mainRoute: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar ruta principal" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {routes.map((route) => (
-                          <SelectItem key={route} value={route}>
-                            {route}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="backupRoute">Ruta de Backup</Label>
-                    <Select
-                      value={newTeam.backupRoute}
-                      onValueChange={(value) => setNewTeam({ ...newTeam, backupRoute: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar ruta backup" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {routes.map((route) => (
-                          <SelectItem key={route} value={route}>
-                            {route}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="meetingPoint">Punto de Encuentro</Label>
-                    <Input
-                      id="meetingPoint"
-                      value={newTeam.meetingPoint}
-                      onChange={(e) => setNewTeam({ ...newTeam, meetingPoint: e.target.value })}
-                      placeholder="Ej: Metro Escuela Militar"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Miembros del Equipo</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {executives.map((executive) => (
-                      <label key={executive} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          checked={newTeam.members.includes(executive)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setNewTeam({ ...newTeam, members: [...newTeam.members, executive] })
-                            } else {
-                              setNewTeam({ ...newTeam, members: newTeam.members.filter((m) => m !== executive) })
-                            }
-                          }}
+
+                {createTeamStep === 1 && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="teamName">Nombre del Equipo</Label>
+                        <Input
+                          id="teamName"
+                          value={newTeam.name}
+                          onChange={(e) => setNewTeam({ ...newTeam, name: e.target.value })}
+                          placeholder="Ej: Equipo Norte A"
                         />
-                        <span className="text-sm">{executive}</span>
-                      </label>
-                    ))}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="teamDate">Fecha</Label>
+                        <Input
+                          id="teamDate"
+                          type="date"
+                          value={newTeam.date}
+                          onChange={(e) => setNewTeam({ ...newTeam, date: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="comuna">Comuna</Label>
+                      <Select
+                        value={newTeam.comuna}
+                        onValueChange={(value) => setNewTeam({ ...newTeam, comuna: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar comuna" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {comunas.map((comuna) => (
+                            <SelectItem key={comuna} value={comuna}>
+                              {comuna}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Miembros del Equipo (Solo ejecutivos disponibles)</Label>
+                      <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto">
+                        {availableExecutives.map((executive) => (
+                          <label key={executive.id} className="flex items-center space-x-2 p-2 border rounded">
+                            <input
+                              type="checkbox"
+                              checked={newTeam.members.includes(executive.name)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setNewTeam({ ...newTeam, members: [...newTeam.members, executive.name] })
+                                } else {
+                                  setNewTeam({
+                                    ...newTeam,
+                                    members: newTeam.members.filter((m) => m !== executive.name),
+                                  })
+                                }
+                              }}
+                            />
+                            <div className="flex-1">
+                              <span className="text-sm font-medium">{executive.name}</span>
+                              <div className="flex gap-1 mt-1">
+                                <Badge
+                                  variant={executive.status === "active" ? "default" : "destructive"}
+                                  className="text-xs"
+                                >
+                                  {executive.status}
+                                </Badge>
+                                {!executive.canSelectOwnRoute && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Sin autonomía
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setIsCreateTeamOpen(false)}>
+                        Cancelar
+                      </Button>
+                      <Button onClick={handleCreateTeamStep1}>
+                        Siguiente: Seleccionar Ruta
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setIsCreateTeamOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button onClick={handleCreateTeam}>Crear Equipo</Button>
-                </div>
+                )}
+
+                {createTeamStep === 2 && (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-blue-50 rounded-lg">
+                      <h4 className="font-medium text-blue-900">Equipo: {newTeam.name}</h4>
+                      <p className="text-sm text-blue-700">
+                        {newTeam.date} - {newTeam.comuna} - {newTeam.members.length} miembros
+                      </p>
+                    </div>
+                    <Button onClick={() => setIsRouteSelectionOpen(true)} className="w-full">
+                      <Map className="h-4 w-4 mr-2" />
+                      Abrir Mapa para Seleccionar Ruta
+                    </Button>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setCreateTeamStep(1)}>
+                        Volver
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </DialogContent>
             </Dialog>
-            <Button variant="outline" size="sm">
-              <FileText className="h-4 w-4 mr-2" />
-              Generar Reporte
-            </Button>
-            <Button size="sm">
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Ver Analytics
-            </Button>
+
+            <Dialog open={isManageUsersOpen} onOpenChange={setIsManageUsersOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Gestionar Usuarios
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl">
+                <DialogHeader>
+                  <DialogTitle>Gestión de Usuarios</DialogTitle>
+                  <DialogDescription>Administra los permisos y estado de tus ejecutivos</DialogDescription>
+                </DialogHeader>
+
+                <Tabs defaultValue="list" className="w-full">
+                  <TabsList>
+                    <TabsTrigger value="list">Lista de Ejecutivos</TabsTrigger>
+                    <TabsTrigger value="add">Agregar Ejecutivo</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="list" className="space-y-4">
+                    <div className="space-y-2">
+                      {executives.map((executive) => (
+                        <div key={executive.id} className="p-4 border rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <h4 className="font-medium">{executive.name}</h4>
+                              <p className="text-sm text-gray-600">{executive.email}</p>
+                            </div>
+                            <div className="flex gap-2">
+                              <Badge variant={executive.status === "active" ? "default" : "destructive"}>
+                                {executive.status}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>Estado</Label>
+                              <Select
+                                value={executive.status}
+                                onValueChange={(value: "active" | "bajo" | "inactive") =>
+                                  updateExecutivePermissions(executive.id, {
+                                    status: value,
+                                    canSelectOwnRoute: value === "active" ? executive.canSelectOwnRoute : false,
+                                  })
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="active">Activo</SelectItem>
+                                  <SelectItem value="bajo">Bajo Supervisión</SelectItem>
+                                  <SelectItem value="inactive">Inactivo</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id={`autonomous-${executive.id}`}
+                                  checked={executive.canSelectOwnRoute && executive.status === "active"}
+                                  disabled={executive.status !== "active"}
+                                  onChange={(e) =>
+                                    updateExecutivePermissions(executive.id, { canSelectOwnRoute: e.target.checked })
+                                  }
+                                />
+                                <Label htmlFor={`autonomous-${executive.id}`} className="text-sm">
+                                  Puede seleccionar su propia ruta
+                                </Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id={`teams-${executive.id}`}
+                                  checked={executive.canJoinTeams}
+                                  onChange={(e) =>
+                                    updateExecutivePermissions(executive.id, { canJoinTeams: e.target.checked })
+                                  }
+                                />
+                                <Label htmlFor={`teams-${executive.id}`} className="text-sm">
+                                  Puede unirse a equipos
+                                </Label>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="add" className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="execName">Nombre</Label>
+                        <Input
+                          id="execName"
+                          value={newExecutive.name}
+                          onChange={(e) => setNewExecutive({ ...newExecutive, name: e.target.value })}
+                          placeholder="Nombre del ejecutivo"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="execEmail">Email</Label>
+                        <Input
+                          id="execEmail"
+                          type="email"
+                          value={newExecutive.email}
+                          onChange={(e) => setNewExecutive({ ...newExecutive, email: e.target.value })}
+                          placeholder="email@empresa.com"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="newExecAutonomous"
+                          checked={newExecutive.canSelectOwnRoute}
+                          onChange={(e) => setNewExecutive({ ...newExecutive, canSelectOwnRoute: e.target.checked })}
+                        />
+                        <Label htmlFor="newExecAutonomous">Puede seleccionar su propia ruta</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="newExecTeams"
+                          checked={newExecutive.canJoinTeams}
+                          onChange={(e) => setNewExecutive({ ...newExecutive, canJoinTeams: e.target.checked })}
+                        />
+                        <Label htmlFor="newExecTeams">Puede unirse a equipos</Label>
+                      </div>
+                    </div>
+                    <Button onClick={handleAddExecutive} className="w-full">
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Agregar Ejecutivo
+                    </Button>
+                  </TabsContent>
+                </Tabs>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
-        {/* Estadísticas del Equipo */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {teamStats.map((stat, index) => (
             <Card key={index}>
@@ -385,9 +615,9 @@ export default function SupervisorPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                Equipos Activos
+                Mis Equipos
               </CardTitle>
-              <CardDescription>Equipos de trabajo configurados</CardDescription>
+              <CardDescription>Equipos bajo tu supervisión</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -397,10 +627,22 @@ export default function SupervisorPage() {
                       <h4 className="font-medium text-gray-900">{team.name}</h4>
                       <Badge
                         variant={
-                          team.status === "active" ? "default" : team.status === "completed" ? "secondary" : "outline"
+                          team.status === "active"
+                            ? "default"
+                            : team.status === "completed"
+                              ? "secondary"
+                              : team.status === "route_pending"
+                                ? "outline"
+                                : "outline"
                         }
                       >
-                        {team.status === "active" ? "Activo" : team.status === "completed" ? "Completado" : "Pendiente"}
+                        {team.status === "active"
+                          ? "Activo"
+                          : team.status === "completed"
+                            ? "Completado"
+                            : team.status === "route_pending"
+                              ? "Pendiente Ruta"
+                              : "Borrador"}
                       </Badge>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-sm text-gray-600 mb-3">
@@ -412,23 +654,42 @@ export default function SupervisorPage() {
                         <MapPin className="h-3 w-3" />
                         {team.comuna}
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Route className="h-3 w-3" />
-                        {team.mainRoute}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Shield className="h-3 w-3" />
-                        {team.backupRoute}
-                      </div>
+                      {team.mainRoute && (
+                        <>
+                          <div className="flex items-center gap-1">
+                            <Route className="h-3 w-3" />
+                            {team.mainRoute}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Shield className="h-3 w-3" />
+                            {team.backupRoute}
+                          </div>
+                        </>
+                      )}
                     </div>
-                    <div className="flex items-center gap-1 text-sm text-gray-600 mb-2">
-                      <Navigation className="h-3 w-3" />
-                      Encuentro: {team.meetingPoint}
-                    </div>
+                    {team.meetingPoint && (
+                      <div className="flex items-center gap-1 text-sm text-gray-600 mb-2">
+                        <Navigation className="h-3 w-3" />
+                        Encuentro: {team.meetingPoint}
+                      </div>
+                    )}
                     <div className="flex items-center gap-1 text-sm text-gray-600">
                       <UserCheck className="h-3 w-3" />
                       {team.members.length} miembros: {team.members.join(", ")}
                     </div>
+                    {team.status === "route_pending" && (
+                      <Button
+                        size="sm"
+                        className="mt-2 w-full"
+                        onClick={() => {
+                          setSelectedTeamForRoute(team)
+                          setIsRouteSelectionOpen(true)
+                        }}
+                      >
+                        <Map className="h-4 w-4 mr-2" />
+                        Seleccionar Ruta
+                      </Button>
+                    )}
                   </div>
                 ))}
                 {teams.length === 0 && (
@@ -482,27 +743,112 @@ export default function SupervisorPage() {
           </Card>
         </div>
 
-        {/* Mapa de Territorio */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5" />
-              Vista de Territorio del Equipo
+              Mapa de Territorio - {new Date().toLocaleDateString()}
             </CardTitle>
-            <CardDescription>Ubicaciones y rutas activas de tu equipo</CardDescription>
+            <CardDescription>Tus equipos y rutas de otros supervisores del mismo día</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-64 bg-gray-100 rounded-lg flex items-center justify-center">
-              <div className="text-center">
-                <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-600">Mapa interactivo del territorio</p>
-                <p className="text-sm text-gray-500">
-                  Mostrando {executiveLocations.length} ejecutivos con tracking activo
-                </p>
+            <div className="space-y-4">
+              <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                  <span>Mis equipos</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-red-500 rounded"></div>
+                  <span>Otros equipos (evitar zonas)</span>
+                </div>
+              </div>
+
+              <div className="h-64 bg-gray-100 rounded-lg flex items-center justify-center relative">
+                <div className="text-center">
+                  <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-600">Mapa interactivo del territorio</p>
+                  <p className="text-sm text-gray-500 mb-2">
+                    Mostrando {executiveLocations.length} ejecutivos con tracking activo
+                  </p>
+                  <div className="text-xs text-gray-500">
+                    <p>Rutas de otros equipos hoy: {otherTeamRoutes.length}</p>
+                    {otherTeamRoutes.map((route) => (
+                      <div key={route.teamId} className="flex items-center justify-center gap-2 mt-1">
+                        <div className="w-2 h-2 rounded" style={{ backgroundColor: route.color }}></div>
+                        <span>{route.teamName}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
+
+        <Dialog open={isRouteSelectionOpen} onOpenChange={setIsRouteSelectionOpen}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Seleccionar Ruta para {selectedTeamForRoute?.name}</DialogTitle>
+              <DialogDescription>
+                Usa el mapa para trazar la ruta principal y de backup. Las rutas de otros equipos se muestran en rojo.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="h-96 bg-gray-100 rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  <Map className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 mb-2">Mapa Interactivo de Selección de Ruta</p>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Haz clic para crear puntos de ruta. Las líneas rojas muestran rutas de otros equipos.
+                  </p>
+                  <div className="space-y-2 text-xs text-gray-500">
+                    {otherTeamRoutes.map((route) => (
+                      <div key={route.teamId} className="flex items-center justify-center gap-2">
+                        <div className="w-2 h-2 rounded" style={{ backgroundColor: route.color }}></div>
+                        <span>{route.teamName} - Evitar esta zona</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Ruta Principal</Label>
+                  <Input placeholder="Nombre de la ruta principal" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Ruta de Backup</Label>
+                  <Input placeholder="Nombre de la ruta de backup" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Punto de Encuentro</Label>
+                <Input placeholder="Ej: Metro Escuela Militar, Estación Central" />
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setIsRouteSelectionOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={() =>
+                    handleCompleteTeamCreation({
+                      mainRoute: "Ruta Seleccionada",
+                      backupRoute: "Backup Seleccionado",
+                      meetingPoint: "Punto Seleccionado",
+                      coordinates: [],
+                    })
+                  }
+                >
+                  Confirmar Ruta y Crear Equipo
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </RoleGuard>
   )
