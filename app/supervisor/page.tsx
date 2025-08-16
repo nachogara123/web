@@ -18,7 +18,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { useAuth } from "@/hooks/use-auth"
-import TeamRouteSelector from "@/components/team-route-selector"
 import {
   Users,
   TrendingUp,
@@ -27,16 +26,12 @@ import {
   MapPin,
   Plus,
   Calendar,
-  Route,
-  Shield,
-  Navigation,
   UserCheck,
   AlertCircleIcon,
   Target,
   Settings,
   UserPlus,
   Map,
-  ArrowRight,
 } from "lucide-react"
 
 interface Team {
@@ -44,13 +39,9 @@ interface Team {
   name: string
   date: string
   comuna: string
-  mainRoute?: string
-  backupRoute?: string
-  meetingPoint?: string
   members: string[]
-  status: "draft" | "route_pending" | "active" | "completed"
+  status: "draft" | "active" | "completed"
   supervisorId: string
-  routeCoordinates?: { lat: number; lng: number }[]
 }
 
 interface Executive {
@@ -75,14 +66,6 @@ interface ExecutiveLocation {
   lastUpdate: string
 }
 
-interface RouteVisualization {
-  teamId: string
-  teamName: string
-  date: string
-  coordinates: { lat: number; lng: number }[]
-  color: string
-}
-
 const comunas = [
   "Las Condes",
   "Providencia",
@@ -104,12 +87,8 @@ export default function SupervisorPage() {
   const [teams, setTeams] = useState<Team[]>([])
   const [executives, setExecutives] = useState<Executive[]>([])
   const [executiveLocations, setExecutiveLocations] = useState<ExecutiveLocation[]>([])
-  const [otherTeamRoutes, setOtherTeamRoutes] = useState<RouteVisualization[]>([])
   const [isCreateTeamOpen, setIsCreateTeamOpen] = useState(false)
   const [isManageUsersOpen, setIsManageUsersOpen] = useState(false)
-  const [isRouteSelectionOpen, setIsRouteSelectionOpen] = useState(false)
-  const [selectedTeamForRoute, setSelectedTeamForRoute] = useState<Team | null>(null)
-  const [createTeamStep, setCreateTeamStep] = useState(1)
   const [newTeam, setNewTeam] = useState({
     name: "",
     date: "",
@@ -188,44 +167,24 @@ export default function SupervisorPage() {
         name: "Equipo Norte A",
         date: "2024-01-16",
         comuna: "Las Condes",
-        mainRoute: "Ruta Norte A",
-        backupRoute: "Ruta Norte B",
-        meetingPoint: "Metro Escuela Militar",
         members: ["Ana Ejecutiva", "Luis Ejecutivo"],
         status: "active",
         supervisorId: user?.id || "supervisor1",
       },
+      {
+        id: "2",
+        name: "Equipo Centro B",
+        date: "2024-01-17",
+        comuna: "Providencia",
+        members: ["Carmen Vendedora"],
+        status: "draft",
+        supervisorId: user?.id || "supervisor1",
+      },
     ]
     setTeams(mockTeams)
-
-    const mockOtherRoutes: RouteVisualization[] = [
-      {
-        teamId: "other1",
-        teamName: "Equipo Sur B (Supervisor 2)",
-        date: "2024-01-16",
-        coordinates: [
-          { lat: -33.5, lng: -70.7 },
-          { lat: -33.51, lng: -70.71 },
-          { lat: -33.52, lng: -70.72 },
-        ],
-        color: "#ef4444",
-      },
-      {
-        teamId: "other2",
-        teamName: "Equipo Centro (Supervisor 3)",
-        date: "2024-01-16",
-        coordinates: [
-          { lat: -33.44, lng: -70.65 },
-          { lat: -33.45, lng: -70.66 },
-          { lat: -33.46, lng: -70.67 },
-        ],
-        color: "#f59e0b",
-      },
-    ]
-    setOtherTeamRoutes(mockOtherRoutes)
   }, [user])
 
-  const handleCreateTeamStep1 = () => {
+  const handleCreateTeam = () => {
     if (!newTeam.name || !newTeam.date || !newTeam.comuna || newTeam.members.length === 0) return
 
     const team: Team = {
@@ -234,40 +193,13 @@ export default function SupervisorPage() {
       date: newTeam.date,
       comuna: newTeam.comuna,
       members: newTeam.members,
-      status: "route_pending",
+      status: "draft",
       supervisorId: user?.id || "supervisor1",
     }
 
     setTeams([...teams, team])
-    setSelectedTeamForRoute(team)
-    setCreateTeamStep(2)
-  }
-
-  const handleCompleteTeamCreation = (routeData: {
-    mainRoute: [number, number][]
-    backupRoute: [number, number][]
-    meetingPoint: [number, number]
-    mainRouteName: string
-    backupRouteName: string
-    meetingPointName: string
-  }) => {
-    if (!selectedTeamForRoute) return
-
-    const updatedTeam = {
-      ...selectedTeamForRoute,
-      mainRoute: routeData.mainRouteName,
-      backupRoute: routeData.backupRouteName,
-      meetingPoint: routeData.meetingPointName,
-      routeCoordinates: routeData.mainRoute,
-      status: "active" as const,
-    }
-
-    setTeams(teams.map((t) => (t.id === selectedTeamForRoute.id ? updatedTeam : t)))
-    setIsCreateTeamOpen(false)
-    setIsRouteSelectionOpen(false)
-    setCreateTeamStep(1)
-    setSelectedTeamForRoute(null)
     setNewTeam({ name: "", date: "", comuna: "", members: [] })
+    setIsCreateTeamOpen(false)
   }
 
   const handleAddExecutive = () => {
@@ -337,122 +269,94 @@ export default function SupervisorPage() {
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>Crear Nuevo Equipo - Paso {createTeamStep} de 2</DialogTitle>
+                  <DialogTitle>Crear Nuevo Equipo</DialogTitle>
                   <DialogDescription>
-                    {createTeamStep === 1 ? "Configura los datos básicos del equipo" : "Selecciona la ruta en el mapa"}
+                    Configura los datos básicos del equipo. Las rutas se asignarán desde la página de mapas.
                   </DialogDescription>
                 </DialogHeader>
 
-                {createTeamStep === 1 && (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="teamName">Nombre del Equipo</Label>
-                        <Input
-                          id="teamName"
-                          value={newTeam.name}
-                          onChange={(e) => setNewTeam({ ...newTeam, name: e.target.value })}
-                          placeholder="Ej: Equipo Norte A"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="teamDate">Fecha</Label>
-                        <Input
-                          id="teamDate"
-                          type="date"
-                          value={newTeam.date}
-                          onChange={(e) => setNewTeam({ ...newTeam, date: e.target.value })}
-                        />
-                      </div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="teamName">Nombre del Equipo</Label>
+                      <Input
+                        id="teamName"
+                        value={newTeam.name}
+                        onChange={(e) => setNewTeam({ ...newTeam, name: e.target.value })}
+                        placeholder="Ej: Equipo Norte A"
+                      />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="comuna">Comuna</Label>
-                      <Select
-                        value={newTeam.comuna}
-                        onValueChange={(value) => setNewTeam({ ...newTeam, comuna: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar comuna" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {comunas.map((comuna) => (
-                            <SelectItem key={comuna} value={comuna}>
-                              {comuna}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="teamDate">Fecha</Label>
+                      <Input
+                        id="teamDate"
+                        type="date"
+                        value={newTeam.date}
+                        onChange={(e) => setNewTeam({ ...newTeam, date: e.target.value })}
+                      />
                     </div>
-                    <div className="space-y-2">
-                      <Label>Miembros del Equipo (Solo ejecutivos disponibles)</Label>
-                      <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto">
-                        {availableExecutives.map((executive) => (
-                          <label key={executive.id} className="flex items-center space-x-2 p-2 border rounded">
-                            <input
-                              type="checkbox"
-                              checked={newTeam.members.includes(executive.name)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setNewTeam({ ...newTeam, members: [...newTeam.members, executive.name] })
-                                } else {
-                                  setNewTeam({
-                                    ...newTeam,
-                                    members: newTeam.members.filter((m) => m !== executive.name),
-                                  })
-                                }
-                              }}
-                            />
-                            <div className="flex-1">
-                              <span className="text-sm font-medium">{executive.name}</span>
-                              <div className="flex gap-1 mt-1">
-                                <Badge
-                                  variant={executive.status === "active" ? "default" : "destructive"}
-                                  className="text-xs"
-                                >
-                                  {executive.status}
-                                </Badge>
-                                {!executive.canSelectOwnRoute && (
-                                  <Badge variant="outline" className="text-xs">
-                                    Sin autonomía
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </label>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="comuna">Comuna</Label>
+                    <Select value={newTeam.comuna} onValueChange={(value) => setNewTeam({ ...newTeam, comuna: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar comuna" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {comunas.map((comuna) => (
+                          <SelectItem key={comuna} value={comuna}>
+                            {comuna}
+                          </SelectItem>
                         ))}
-                      </div>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => setIsCreateTeamOpen(false)}>
-                        Cancelar
-                      </Button>
-                      <Button onClick={handleCreateTeamStep1}>
-                        Siguiente: Seleccionar Ruta
-                        <ArrowRight className="h-4 w-4 ml-2" />
-                      </Button>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Miembros del Equipo (Solo ejecutivos disponibles)</Label>
+                    <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto">
+                      {availableExecutives.map((executive) => (
+                        <label key={executive.id} className="flex items-center space-x-2 p-2 border rounded">
+                          <input
+                            type="checkbox"
+                            checked={newTeam.members.includes(executive.name)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setNewTeam({ ...newTeam, members: [...newTeam.members, executive.name] })
+                              } else {
+                                setNewTeam({
+                                  ...newTeam,
+                                  members: newTeam.members.filter((m) => m !== executive.name),
+                                })
+                              }
+                            }}
+                          />
+                          <div className="flex-1">
+                            <span className="text-sm font-medium">{executive.name}</span>
+                            <div className="flex gap-1 mt-1">
+                              <Badge
+                                variant={executive.status === "active" ? "default" : "destructive"}
+                                className="text-xs"
+                              >
+                                {executive.status}
+                              </Badge>
+                              {!executive.canSelectOwnRoute && (
+                                <Badge variant="outline" className="text-xs">
+                                  Sin autonomía
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </label>
+                      ))}
                     </div>
                   </div>
-                )}
-
-                {createTeamStep === 2 && (
-                  <div className="space-y-4">
-                    <div className="p-4 bg-blue-50 rounded-lg">
-                      <h4 className="font-medium text-blue-900">Equipo: {newTeam.name}</h4>
-                      <p className="text-sm text-blue-700">
-                        {newTeam.date} - {newTeam.comuna} - {newTeam.members.length} miembros
-                      </p>
-                    </div>
-                    <Button onClick={() => setIsRouteSelectionOpen(true)} className="w-full">
-                      <Map className="h-4 w-4 mr-2" />
-                      Abrir Mapa para Seleccionar Ruta
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setIsCreateTeamOpen(false)}>
+                      Cancelar
                     </Button>
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => setCreateTeamStep(1)}>
-                        Volver
-                      </Button>
-                    </div>
+                    <Button onClick={handleCreateTeam}>Crear Equipo</Button>
                   </div>
-                )}
+                </div>
               </DialogContent>
             </Dialog>
 
@@ -597,6 +501,11 @@ export default function SupervisorPage() {
                 </Tabs>
               </DialogContent>
             </Dialog>
+
+            <Button variant="outline" size="sm" onClick={() => (window.location.href = "/mapa")}>
+              <Map className="h-4 w-4 mr-2" />
+              Gestionar Rutas
+            </Button>
           </div>
         </div>
 
@@ -635,22 +544,10 @@ export default function SupervisorPage() {
                       <h4 className="font-medium text-gray-900">{team.name}</h4>
                       <Badge
                         variant={
-                          team.status === "active"
-                            ? "default"
-                            : team.status === "completed"
-                              ? "secondary"
-                              : team.status === "route_pending"
-                                ? "outline"
-                                : "outline"
+                          team.status === "active" ? "default" : team.status === "completed" ? "secondary" : "outline"
                         }
                       >
-                        {team.status === "active"
-                          ? "Activo"
-                          : team.status === "completed"
-                            ? "Completado"
-                            : team.status === "route_pending"
-                              ? "Pendiente Ruta"
-                              : "Borrador"}
+                        {team.status === "active" ? "Activo" : team.status === "completed" ? "Completado" : "Borrador"}
                       </Badge>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-sm text-gray-600 mb-3">
@@ -662,41 +559,16 @@ export default function SupervisorPage() {
                         <MapPin className="h-3 w-3" />
                         {team.comuna}
                       </div>
-                      {team.mainRoute && (
-                        <>
-                          <div className="flex items-center gap-1">
-                            <Route className="h-3 w-3" />
-                            {team.mainRoute}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Shield className="h-3 w-3" />
-                            {team.backupRoute}
-                          </div>
-                        </>
-                      )}
                     </div>
-                    {team.meetingPoint && (
-                      <div className="flex items-center gap-1 text-sm text-gray-600 mb-2">
-                        <Navigation className="h-3 w-3" />
-                        Encuentro: {team.meetingPoint}
-                      </div>
-                    )}
                     <div className="flex items-center gap-1 text-sm text-gray-600">
                       <UserCheck className="h-3 w-3" />
                       {team.members.length} miembros: {team.members.join(", ")}
                     </div>
-                    {team.status === "route_pending" && (
-                      <Button
-                        size="sm"
-                        className="mt-2 w-full"
-                        onClick={() => {
-                          setSelectedTeamForRoute(team)
-                          setIsRouteSelectionOpen(true)
-                        }}
-                      >
-                        <Map className="h-4 w-4 mr-2" />
-                        Seleccionar Ruta
-                      </Button>
+                    {team.status === "draft" && (
+                      <div className="mt-2 p-2 bg-blue-50 rounded text-sm text-blue-700">
+                        <Map className="h-3 w-3 inline mr-1" />
+                        Asigna rutas desde la página de mapas
+                      </div>
                     )}
                   </div>
                 ))}
@@ -750,77 +622,6 @@ export default function SupervisorPage() {
             </CardContent>
           </Card>
         </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5" />
-              Mapa de Territorio - {new Date().toLocaleDateString()}
-            </CardTitle>
-            <CardDescription>Tus equipos y rutas de otros supervisores del mismo día</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-blue-500 rounded"></div>
-                  <span>Mis equipos</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-red-500 rounded"></div>
-                  <span>Otros equipos (evitar zonas)</span>
-                </div>
-              </div>
-
-              <div className="h-64 bg-gray-100 rounded-lg flex items-center justify-center relative">
-                <div className="text-center">
-                  <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-600">Mapa interactivo del territorio</p>
-                  <p className="text-sm text-gray-500 mb-2">
-                    Mostrando {executiveLocations.length} ejecutivos con tracking activo
-                  </p>
-                  <div className="text-xs text-gray-500">
-                    <p>Rutas de otros equipos hoy: {otherTeamRoutes.length}</p>
-                    {otherTeamRoutes.map((route) => (
-                      <div key={route.teamId} className="flex items-center justify-center gap-2 mt-1">
-                        <div className="w-2 h-2 rounded" style={{ backgroundColor: route.color }}></div>
-                        <span>{route.teamName}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Dialog open={isRouteSelectionOpen} onOpenChange={setIsRouteSelectionOpen}>
-          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Seleccionar Ruta para {selectedTeamForRoute?.name}</DialogTitle>
-              <DialogDescription>
-                Usa leaflet-draw para trazar rutas en el mapa. Las rutas de otros equipos se muestran para evitar
-                solapamientos.
-              </DialogDescription>
-            </DialogHeader>
-            {selectedTeamForRoute && (
-              <TeamRouteSelector
-                existingRoutes={otherTeamRoutes.map((route) => ({
-                  id: route.teamId,
-                  teamName: route.teamName,
-                  supervisorName: "Otro Supervisor",
-                  date: route.date,
-                  mainRoute: route.coordinates.map((coord) => [coord.lat, coord.lng] as [number, number]),
-                  meetingPoint: [route.coordinates[0].lat, route.coordinates[0].lng] as [number, number],
-                  color: route.color,
-                }))}
-                onRouteComplete={handleCompleteTeamCreation}
-                teamName={selectedTeamForRoute.name}
-                date={selectedTeamForRoute.date}
-              />
-            )}
-          </DialogContent>
-        </Dialog>
       </div>
     </RoleGuard>
   )
