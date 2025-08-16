@@ -2,16 +2,36 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
 // Rutas que requieren autenticación
-const protectedRoutes = ["/dashboard", "/usuarios", "/mapa", "/supervisor", "/ejecutivo"]
+const protectedRoutes = [
+  "/dashboard",
+  "/usuarios",
+  "/mapa",
+  "/mapa-feedback",
+  "/mapa-dibujo",
+  "/optimizar-rutas",
+  "/exportar",
+  "/supervisor",
+  "/ejecutivo",
+]
 
 // Rutas públicas que no requieren autenticación
 const publicRoutes = ["/login"]
 
 // Permisos por rol
 const rolePermissions = {
-  admin: ["/dashboard", "/usuarios", "/mapa", "/supervisor", "/ejecutivo"],
-  supervisor: ["/dashboard", "/usuarios", "/mapa", "/supervisor"],
-  ejecutivo: ["/dashboard", "/mapa", "/ejecutivo"],
+  admin: [
+    "/dashboard",
+    "/usuarios",
+    "/mapa",
+    "/mapa-feedback",
+    "/mapa-dibujo",
+    "/optimizar-rutas",
+    "/exportar",
+    "/supervisor",
+    "/ejecutivo",
+  ],
+  supervisor: ["/dashboard", "/usuarios", "/mapa", "/mapa-feedback", "/mapa-dibujo", "/optimizar-rutas", "/supervisor"],
+  ejecutivo: ["/dashboard", "/mapa", "/mapa-feedback", "/optimizar-rutas", "/ejecutivo"],
 }
 
 export function middleware(request: NextRequest) {

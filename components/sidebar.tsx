@@ -19,21 +19,18 @@ import {
   MessageSquare,
   UserCheck,
   Briefcase,
-  BarChart3,
-  Settings,
 } from "lucide-react"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, permission: "dashboard" },
   { name: "Usuarios", href: "/usuarios", icon: Users, permission: "usuarios" },
+  { name: "Mapa", href: "/mapa", icon: Route, permission: "mapa" },
   { name: "Mapa Feedback", href: "/mapa-feedback", icon: MessageSquare, permission: "mapa-feedback" },
   { name: "Mapa Dibujo", href: "/mapa-dibujo", icon: Edit3, permission: "mapa-dibujo" },
   { name: "Optimizar Rutas", href: "/optimizar-rutas", icon: Route, permission: "optimizar-rutas" },
   { name: "Exportar", href: "/exportar", icon: Download, permission: "exportar" },
   { name: "Panel Supervisor", href: "/supervisor", icon: UserCheck, permission: "supervisor-panel" },
   { name: "Panel Ejecutivo", href: "/ejecutivo", icon: Briefcase, permission: "ejecutivo-panel" },
-  { name: "Reportes", href: "/reportes", icon: BarChart3, permission: "reportes" },
-  { name: "Configuración", href: "/configuracion", icon: Settings, permission: "configuracion" },
 ]
 
 export function Sidebar() {
