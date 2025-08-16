@@ -6,15 +6,34 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/use-auth"
-import { LayoutDashboard, Users, Route, Download, Menu, LogOut, ChevronLeft, Edit3, MessageSquare } from "lucide-react"
+import { PermissionGuard } from "@/components/permission-guard"
+import {
+  LayoutDashboard,
+  Users,
+  Route,
+  Download,
+  Menu,
+  LogOut,
+  ChevronLeft,
+  Edit3,
+  MessageSquare,
+  UserCheck,
+  Briefcase,
+  BarChart3,
+  Settings,
+} from "lucide-react"
 
 const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Usuarios", href: "/usuarios", icon: Users },
-  { name: "Mapa Feedback", href: "/mapa-feedback", icon: MessageSquare },
-  { name: "Mapa Dibujo", href: "/mapa-dibujo", icon: Edit3 },
-  { name: "Optimizar Rutas", href: "/optimizar-rutas", icon: Route },
-  { name: "Exportar", href: "/exportar", icon: Download },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, permission: "dashboard" },
+  { name: "Usuarios", href: "/usuarios", icon: Users, permission: "usuarios" },
+  { name: "Mapa Feedback", href: "/mapa-feedback", icon: MessageSquare, permission: "mapa-feedback" },
+  { name: "Mapa Dibujo", href: "/mapa-dibujo", icon: Edit3, permission: "mapa-dibujo" },
+  { name: "Optimizar Rutas", href: "/optimizar-rutas", icon: Route, permission: "optimizar-rutas" },
+  { name: "Exportar", href: "/exportar", icon: Download, permission: "exportar" },
+  { name: "Panel Supervisor", href: "/supervisor", icon: UserCheck, permission: "supervisor-panel" },
+  { name: "Panel Ejecutivo", href: "/ejecutivo", icon: Briefcase, permission: "ejecutivo-panel" },
+  { name: "Reportes", href: "/reportes", icon: BarChart3, permission: "reportes" },
+  { name: "Configuración", href: "/configuracion", icon: Settings, permission: "configuracion" },
 ]
 
 export function Sidebar() {
@@ -35,6 +54,12 @@ export function Sidebar() {
           <Menu className="h-5 w-5" />
         </Button>
         <h1 className="ml-4 text-xl font-bold text-gray-900">GeoVision</h1>
+        {user && (
+          <div className="ml-auto text-sm text-gray-600">
+            <span className="capitalize font-medium">{user.role}</span>
+            {user.department && <span className="ml-2 text-gray-400">• {user.department}</span>}
+          </div>
+        )}
       </div>
 
       {isOpen && <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setIsOpen(false)} />}
@@ -53,24 +78,24 @@ export function Sidebar() {
             </Button>
           </div>
 
-          {/* Navigation */}
           <nav className="flex-1 space-y-1 p-4">
             {navigation.map((item) => {
               const isActive = pathname === item.href
               return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  onClick={() => setIsOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                    "hover:bg-blue-50 hover:text-blue-700",
-                    isActive ? "bg-blue-100 text-blue-700 border border-blue-200" : "text-gray-700",
-                  )}
-                >
-                  <item.icon className="h-5 w-5 flex-shrink-0" />
-                  {!isCollapsed && <span>{item.name}</span>}
-                </Link>
+                <PermissionGuard key={item.name} permission={item.permission}>
+                  <Link
+                    href={item.href}
+                    onClick={() => setIsOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      "hover:bg-blue-50 hover:text-blue-700",
+                      isActive ? "bg-blue-100 text-blue-700 border border-blue-200" : "text-gray-700",
+                    )}
+                  >
+                    <item.icon className="h-5 w-5 flex-shrink-0" />
+                    {!isCollapsed && <span>{item.name}</span>}
+                  </Link>
+                </PermissionGuard>
               )
             })}
           </nav>
@@ -81,6 +106,7 @@ export function Sidebar() {
               <div className="mb-3">
                 <p className="text-sm font-medium text-gray-900">{user.name}</p>
                 <p className="text-xs text-gray-500">{user.email}</p>
+                <p className="text-xs text-blue-600 capitalize font-medium">{user.role}</p>
               </div>
             )}
             <Button
