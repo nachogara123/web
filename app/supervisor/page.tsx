@@ -18,6 +18,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { useAuth } from "@/hooks/use-auth"
+import TeamRouteSelector from "@/components/team-route-selector"
 import {
   Users,
   TrendingUp,
@@ -242,15 +243,22 @@ export default function SupervisorPage() {
     setCreateTeamStep(2)
   }
 
-  const handleCompleteTeamCreation = (routeData: any) => {
+  const handleCompleteTeamCreation = (routeData: {
+    mainRoute: [number, number][]
+    backupRoute: [number, number][]
+    meetingPoint: [number, number]
+    mainRouteName: string
+    backupRouteName: string
+    meetingPointName: string
+  }) => {
     if (!selectedTeamForRoute) return
 
     const updatedTeam = {
       ...selectedTeamForRoute,
-      mainRoute: routeData.mainRoute,
-      backupRoute: routeData.backupRoute,
-      meetingPoint: routeData.meetingPoint,
-      routeCoordinates: routeData.coordinates,
+      mainRoute: routeData.mainRouteName,
+      backupRoute: routeData.backupRouteName,
+      meetingPoint: routeData.meetingPointName,
+      routeCoordinates: routeData.mainRoute,
       status: "active" as const,
     }
 
@@ -787,66 +795,30 @@ export default function SupervisorPage() {
         </Card>
 
         <Dialog open={isRouteSelectionOpen} onOpenChange={setIsRouteSelectionOpen}>
-          <DialogContent className="max-w-4xl">
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Seleccionar Ruta para {selectedTeamForRoute?.name}</DialogTitle>
               <DialogDescription>
-                Usa el mapa para trazar la ruta principal y de backup. Las rutas de otros equipos se muestran en rojo.
+                Usa leaflet-draw para trazar rutas en el mapa. Las rutas de otros equipos se muestran para evitar
+                solapamientos.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="h-96 bg-gray-100 rounded-lg flex items-center justify-center">
-                <div className="text-center">
-                  <Map className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600 mb-2">Mapa Interactivo de Selección de Ruta</p>
-                  <p className="text-sm text-gray-500 mb-4">
-                    Haz clic para crear puntos de ruta. Las líneas rojas muestran rutas de otros equipos.
-                  </p>
-                  <div className="space-y-2 text-xs text-gray-500">
-                    {otherTeamRoutes.map((route) => (
-                      <div key={route.teamId} className="flex items-center justify-center gap-2">
-                        <div className="w-2 h-2 rounded" style={{ backgroundColor: route.color }}></div>
-                        <span>{route.teamName} - Evitar esta zona</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Ruta Principal</Label>
-                  <Input placeholder="Nombre de la ruta principal" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Ruta de Backup</Label>
-                  <Input placeholder="Nombre de la ruta de backup" />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Punto de Encuentro</Label>
-                <Input placeholder="Ej: Metro Escuela Militar, Estación Central" />
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsRouteSelectionOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={() =>
-                    handleCompleteTeamCreation({
-                      mainRoute: "Ruta Seleccionada",
-                      backupRoute: "Backup Seleccionado",
-                      meetingPoint: "Punto Seleccionado",
-                      coordinates: [],
-                    })
-                  }
-                >
-                  Confirmar Ruta y Crear Equipo
-                </Button>
-              </div>
-            </div>
+            {selectedTeamForRoute && (
+              <TeamRouteSelector
+                existingRoutes={otherTeamRoutes.map((route) => ({
+                  id: route.teamId,
+                  teamName: route.teamName,
+                  supervisorName: "Otro Supervisor",
+                  date: route.date,
+                  mainRoute: route.coordinates.map((coord) => [coord.lat, coord.lng] as [number, number]),
+                  meetingPoint: [route.coordinates[0].lat, route.coordinates[0].lng] as [number, number],
+                  color: route.color,
+                }))}
+                onRouteComplete={handleCompleteTeamCreation}
+                teamName={selectedTeamForRoute.name}
+                date={selectedTeamForRoute.date}
+              />
+            )}
           </DialogContent>
         </Dialog>
       </div>
