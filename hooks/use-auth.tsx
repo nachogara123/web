@@ -39,6 +39,9 @@ const mockUsers = [
       "exportar",
       "reportes",
       "configuracion",
+      "supervisor-panel",
+      "ejecutivo-panel",
+      "equipos", // Added team management permission for admin
     ],
   },
   {
@@ -107,6 +110,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const hasPermission = (permission: string): boolean => {
+    if (user?.role === "admin") {
+      return true
+    }
     return user?.permissions.includes(permission) || false
   }
 

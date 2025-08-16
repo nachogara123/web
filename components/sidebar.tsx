@@ -26,6 +26,7 @@ import {
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, permission: "dashboard" },
   { name: "Usuarios", href: "/usuarios", icon: Users, permission: "usuarios" },
+  { name: "Equipos", href: "/equipos", icon: Users, permission: "equipos" }, // Added team management
   { name: "Mapa Feedback", href: "/mapa-feedback", icon: MessageSquare, permission: "mapa-feedback" },
   { name: "Mapa Dibujo", href: "/mapa-dibujo", icon: Edit3, permission: "mapa-dibujo" },
   { name: "Optimizar Rutas", href: "/optimizar-rutas", icon: Route, permission: "optimizar-rutas" },
