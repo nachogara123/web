@@ -17,8 +17,9 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Plus, Edit, Trash2, Filter } from "lucide-react"
+import { Search, Plus, Edit, Trash2, Filter, Upload, FileText } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import { PermissionGuard } from "@/components/permission-guard"
 
 interface User {
   id: string
@@ -76,6 +77,8 @@ export default function UsuariosPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false)
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [formData, setFormData] = useState({
     name: "",
@@ -131,6 +134,31 @@ export default function UsuariosPage() {
     })
   }
 
+  const handleBulkUpload = () => {
+    if (!uploadFile) return
+
+    // Mock processing of CSV file
+    const mockNewUsers = [
+      { name: "Usuario Masivo 1", email: "user1@bulk.com", role: "user" as const, status: "active" as const },
+      { name: "Usuario Masivo 2", email: "user2@bulk.com", role: "user" as const, status: "active" as const },
+    ]
+
+    const newUsers = mockNewUsers.map((userData) => ({
+      id: Date.now().toString() + Math.random(),
+      ...userData,
+      lastLogin: "Nunca",
+      createdAt: new Date().toISOString().split("T")[0],
+    }))
+
+    setUsers([...users, ...newUsers])
+    setIsBulkUploadOpen(false)
+    setUploadFile(null)
+    toast({
+      title: "Usuarios cargados",
+      description: `Se han creado ${newUsers.length} usuarios desde el archivo.`,
+    })
+  }
+
   const handleDeleteUser = (userId: string) => {
     setUsers(users.filter((user) => user.id !== userId))
     toast({
@@ -175,78 +203,126 @@ export default function UsuariosPage() {
           <p className="text-gray-600">Administra los usuarios del sistema GeoVision</p>
         </div>
 
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="mr-2 h-4 w-4" />
-              Nuevo Usuario
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Crear Nuevo Usuario</DialogTitle>
-              <DialogDescription>Completa los datos para crear un nuevo usuario en el sistema.</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Nombre</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Nombre completo"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="usuario@ejemplo.com"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="role">Rol</Label>
-                <Select
-                  value={formData.role}
-                  onValueChange={(value: User["role"]) => setFormData({ ...formData, role: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Administrador</SelectItem>
-                    <SelectItem value="user">Usuario</SelectItem>
-                    <SelectItem value="viewer">Visualizador</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="status">Estado</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value: User["status"]) => setFormData({ ...formData, status: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Activo</SelectItem>
-                    <SelectItem value="inactive">Inactivo</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                Cancelar
+        <div className="flex gap-2">
+          <PermissionGuard permission="usuarios">
+            <Dialog open={isBulkUploadOpen} onOpenChange={setIsBulkUploadOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Upload className="mr-2 h-4 w-4" />
+                  Carga Masiva
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Carga Masiva de Usuarios</DialogTitle>
+                  <DialogDescription>
+                    Sube un archivo CSV con los datos de múltiples usuarios para crearlos automáticamente.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <div className="space-y-2">
+                      <Label htmlFor="csv-upload" className="cursor-pointer">
+                        <span className="text-blue-600 hover:text-blue-500">Seleccionar archivo CSV</span>
+                      </Label>
+                      <Input
+                        id="csv-upload"
+                        type="file"
+                        accept=".csv"
+                        className="hidden"
+                        onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                      />
+                      <p className="text-sm text-gray-500">Formato: nombre,email,rol,estado</p>
+                      {uploadFile && <p className="text-sm text-green-600">Archivo seleccionado: {uploadFile.name}</p>}
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsBulkUploadOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={handleBulkUpload} disabled={!uploadFile}>
+                    Procesar Archivo
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </PermissionGuard>
+
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="mr-2 h-4 w-4" />
+                Nuevo Usuario
               </Button>
-              <Button onClick={handleCreateUser}>Crear Usuario</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Crear Nuevo Usuario</DialogTitle>
+                <DialogDescription>Completa los datos para crear un nuevo usuario en el sistema.</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="name">Nombre</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Nombre completo"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="usuario@ejemplo.com"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="role">Rol</Label>
+                  <Select
+                    value={formData.role}
+                    onValueChange={(value: User["role"]) => setFormData({ ...formData, role: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Administrador</SelectItem>
+                      <SelectItem value="user">Usuario</SelectItem>
+                      <SelectItem value="viewer">Visualizador</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="status">Estado</Label>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(value: User["status"]) => setFormData({ ...formData, status: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Activo</SelectItem>
+                      <SelectItem value="inactive">Inactivo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleCreateUser}>Crear Usuario</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <Card className="shadow-lg border-0">

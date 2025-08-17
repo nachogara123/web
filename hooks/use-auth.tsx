@@ -19,6 +19,9 @@ interface AuthContextType {
   logout: () => void
   isLoading: boolean
   hasPermission: (permission: string) => boolean
+  adminMode: UserRole | null
+  setAdminMode: (mode: UserRole) => void
+  isAdminModeActive: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -41,7 +44,7 @@ const mockUsers = [
       "configuracion",
       "supervisor-panel",
       "ejecutivo-panel",
-      "equipos", // Added team management permission for admin
+      "equipos",
     ],
   },
   {
@@ -50,7 +53,15 @@ const mockUsers = [
     name: "Carlos Supervisor",
     role: "supervisor" as UserRole,
     department: "Operaciones",
-    permissions: ["dashboard", "usuarios", "mapa-feedback", "optimizar-rutas", "reportes", "supervisor-panel"],
+    permissions: [
+      "dashboard",
+      "usuarios",
+      "mapa-feedback",
+      "optimizar-rutas",
+      "reportes",
+      "supervisor-panel",
+      "equipos",
+    ],
   },
   {
     id: "3",
@@ -66,7 +77,15 @@ const mockUsers = [
     name: "María Supervisora",
     role: "supervisor" as UserRole,
     department: "Logística",
-    permissions: ["dashboard", "usuarios", "mapa-feedback", "optimizar-rutas", "reportes", "supervisor-panel"],
+    permissions: [
+      "dashboard",
+      "usuarios",
+      "mapa-feedback",
+      "optimizar-rutas",
+      "reportes",
+      "supervisor-panel",
+      "equipos",
+    ],
   },
   {
     id: "5",
@@ -81,23 +100,29 @@ const mockUsers = [
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [adminMode, setAdminModeState] = useState<UserRole | null>(null)
 
   useEffect(() => {
-    // Check for stored user on mount
     const storedUser = localStorage.getItem("geovision_user")
     if (storedUser) {
-      setUser(JSON.parse(storedUser))
+      const userData = JSON.parse(storedUser)
+      setUser(userData)
+      if (userData.role === "admin") {
+        setAdminModeState("admin")
+      }
     }
     setIsLoading(false)
   }, [])
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    // Demo authentication - password es "password" para todos
     if (password === "password") {
       const userData = mockUsers.find((u) => u.email === email)
       if (userData) {
         setUser(userData)
         localStorage.setItem("geovision_user", JSON.stringify(userData))
+        if (userData.role === "admin") {
+          setAdminModeState("admin")
+        }
         return true
       }
     }
@@ -106,7 +131,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null)
+    setAdminModeState(null)
     localStorage.removeItem("geovision_user")
+  }
+
+  const setAdminMode = (mode: UserRole) => {
+    if (user?.role === "admin") {
+      setAdminModeState(mode)
+    }
   }
 
   const hasPermission = (permission: string): boolean => {
@@ -116,8 +148,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return user?.permissions.includes(permission) || false
   }
 
+  const isAdminModeActive = user?.role === "admin" && adminMode !== null
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading, hasPermission }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        logout,
+        isLoading,
+        hasPermission,
+        adminMode,
+        setAdminMode,
+        isAdminModeActive,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
   )
 }
 

@@ -5,22 +5,10 @@ import { RoleGuard } from "@/components/role-guard"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
 import { useAuth } from "@/hooks/use-auth"
+import { Download } from "lucide-react"
 import {
   Target,
-  TrendingUp,
   Calendar,
   Award,
   MapPin,
@@ -29,11 +17,8 @@ import {
   Users,
   CheckCircle2,
   AlertCircle,
-  Route,
-  Navigation,
   Lock,
   Unlock,
-  Map,
 } from "lucide-react"
 
 interface ExecutiveStatus {
@@ -155,176 +140,11 @@ export default function EjecutivoPage() {
               <Calendar className="h-4 w-4 mr-2" />
               Mi Agenda
             </Button>
-
-            {executiveStatus.canSelectOwnRoute ? (
-              <Dialog open={isRouteSelectionOpen} onOpenChange={setIsRouteSelectionOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm">
-                    <Route className="h-4 w-4 mr-2" />
-                    Seleccionar Mi Ruta
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle>Seleccionar Ruta Personal</DialogTitle>
-                    <DialogDescription>
-                      Como ejecutivo autónomo, puedes seleccionar tu propia ruta de trabajo
-                    </DialogDescription>
-                  </DialogHeader>
-
-                  <div className="space-y-6">
-                    <div className="space-y-4">
-                      <h4 className="font-medium">Rutas Predefinidas</h4>
-                      <div className="space-y-2">
-                        <Label>Comuna de Trabajo</Label>
-                        <Select value={selectedComuna} onValueChange={setSelectedComuna}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccionar comuna" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {comunas.map((comuna) => (
-                              <SelectItem key={comuna} value={comuna}>
-                                {comuna}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Ruta Disponible</Label>
-                        <Select value={selectedRoute} onValueChange={setSelectedRoute}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccionar ruta predefinida" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableRoutes.map((route) => (
-                              <SelectItem key={route} value={route}>
-                                {route}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="border-t pt-4">
-                      <h4 className="font-medium mb-4">O Crear Ruta Personalizada</h4>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Nombre de la Ruta</Label>
-                          <Input
-                            value={customRoute.name}
-                            onChange={(e) => setCustomRoute({ ...customRoute, name: e.target.value })}
-                            placeholder="Mi Ruta Personalizada"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Tiempo Estimado</Label>
-                          <Input
-                            value={customRoute.estimatedTime}
-                            onChange={(e) => setCustomRoute({ ...customRoute, estimatedTime: e.target.value })}
-                            placeholder="8 horas"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Punto de Inicio</Label>
-                          <Input
-                            value={customRoute.startPoint}
-                            onChange={(e) => setCustomRoute({ ...customRoute, startPoint: e.target.value })}
-                            placeholder="Dirección de inicio"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Punto Final</Label>
-                          <Input
-                            value={customRoute.endPoint}
-                            onChange={(e) => setCustomRoute({ ...customRoute, endPoint: e.target.value })}
-                            placeholder="Dirección final"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="h-32 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <div className="text-center">
-                        <Map className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                        <p className="text-sm text-gray-600">Vista previa del mapa</p>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => setIsRouteSelectionOpen(false)}>
-                        Cancelar
-                      </Button>
-                      <Button onClick={handleRouteSelection}>Confirmar Ruta</Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            ) : (
-              <Button size="sm" disabled className="opacity-50">
-                <Lock className="h-4 w-4 mr-2" />
-                Ruta Asignada por Supervisor
-              </Button>
-            )}
-
             <Button variant="outline" size="sm">
               <MapPin className="h-4 w-4 mr-2" />
               Ver Mi Ubicación
             </Button>
           </div>
-        </div>
-
-        {!executiveStatus.canSelectOwnRoute && (
-          <Card className="border-yellow-200 bg-yellow-50">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <AlertCircle className="h-5 w-5 text-yellow-600" />
-                <div>
-                  <p className="font-medium text-yellow-800">Modo de Supervisión Activo</p>
-                  <p className="text-sm text-yellow-700">
-                    Tu supervisor gestiona tu ruta de trabajo. No puedes seleccionar rutas de forma autónoma.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {executiveStatus.teamAssignment && (
-          <Card className="border-blue-200 bg-blue-50">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Users className="h-5 w-5 text-blue-600" />
-                <div>
-                  <p className="font-medium text-blue-800">Asignado a {executiveStatus.teamAssignment}</p>
-                  <p className="text-sm text-blue-700">
-                    Trabajas como parte de un equipo. Coordina con tu supervisor para cambios de ruta.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Estadísticas Personales */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {personalStats.map((stat, index) => (
-            <Card key={index}>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">{stat.label}</p>
-                    <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                    <p className="text-sm text-green-600 font-medium">{stat.change}</p>
-                  </div>
-                  <div className={`p-3 rounded-full ${stat.color}`}>
-                    <stat.icon className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -364,27 +184,21 @@ export default function EjecutivoPage() {
             </CardContent>
           </Card>
 
-          {/* Ventas Recientes */}
+          {/* Agenda Semanal */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Ventas Recientes
+                <Calendar className="h-5 w-5" />
+                Agenda Semanal
               </CardTitle>
-              <CardDescription>Tus últimas ventas cerradas</CardDescription>
+              <CardDescription>Vista de tu semana</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {recentSales.map((sale) => (
-                  <div key={sale.id} className="p-4 border border-gray-200 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-gray-900">{sale.client}</h4>
-                      <span className="text-lg font-bold text-green-600">{sale.amount}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm text-gray-600">
-                      <span>{sale.product}</span>
-                      <span>{sale.date}</span>
-                    </div>
+              <div className="space-y-3">
+                {["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"].map((day, index) => (
+                  <div key={day} className="flex items-center justify-between p-2 border rounded">
+                    <span className="font-medium">{day}</span>
+                    <span className="text-sm text-gray-600">{3 + index} citas</span>
                   </div>
                 ))}
               </div>
@@ -392,61 +206,27 @@ export default function EjecutivoPage() {
           </Card>
         </div>
 
-        {/* Metas Mensuales */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5" />
-              Progreso de Metas Mensuales
-            </CardTitle>
-            <CardDescription>Tu avance hacia los objetivos del mes</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {monthlyGoals.map((goal, index) => (
-                <div key={index} className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-gray-900">{goal.goal}</h4>
-                    <span className="text-sm text-gray-600">
-                      {goal.current}/{goal.target} {goal.unit}
-                    </span>
-                  </div>
-                  <Progress value={(goal.current / goal.target) * 100} className="h-2" />
-                  <p className="text-sm text-gray-600">{Math.round((goal.current / goal.target) * 100)}% completado</p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Mapa de Territorio Personal */}
+        {/* Mapa de Ubicación */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5" />
-              Mi Territorio
-              {executiveStatus.canSelectOwnRoute && (
-                <Badge variant="outline" className="ml-2">
-                  <Navigation className="h-3 w-3 mr-1" />
-                  Ruta Autónoma
-                </Badge>
-              )}
+              Mi Ubicación Actual
             </CardTitle>
             <CardDescription>
-              {executiveStatus.canSelectOwnRoute
-                ? "Clientes y rutas que puedes gestionar de forma autónoma"
-                : "Territorio asignado por tu supervisor"}
+              Ubicación guardada con fecha {new Date().toLocaleDateString()} - ID: {user?.id}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-64 bg-gray-100 rounded-lg flex items-center justify-center">
               <div className="text-center">
-                <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-600">Mapa de tu territorio personal</p>
-                <p className="text-sm text-gray-500">Mostrando 23 clientes activos</p>
-                {!executiveStatus.canSelectOwnRoute && (
-                  <p className="text-xs text-yellow-600 mt-1">Ruta gestionada por supervisor</p>
-                )}
+                <MapPin className="h-12 w-12 text-blue-500 mx-auto mb-2" />
+                <p className="text-gray-600">Ubicación actual del ejecutivo</p>
+                <p className="text-sm text-gray-500">Lat: -33.4489, Lng: -70.6693</p>
+                <Button className="mt-2" size="sm">
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar Ubicación CSV
+                </Button>
               </div>
             </div>
           </CardContent>

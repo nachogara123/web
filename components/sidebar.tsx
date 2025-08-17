@@ -22,26 +22,47 @@ import {
   BarChart3,
   Settings,
 } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, permission: "dashboard" },
-  { name: "Usuarios", href: "/usuarios", icon: Users, permission: "usuarios" },
-  { name: "Equipos", href: "/equipos", icon: Users, permission: "equipos" }, // Added team management
-  { name: "Mapa Feedback", href: "/mapa-feedback", icon: MessageSquare, permission: "mapa-feedback" },
-  { name: "Mapa Dibujo", href: "/mapa-dibujo", icon: Edit3, permission: "mapa-dibujo" },
-  { name: "Optimizar Rutas", href: "/optimizar-rutas", icon: Route, permission: "optimizar-rutas" },
-  { name: "Exportar", href: "/exportar", icon: Download, permission: "exportar" },
-  { name: "Panel Supervisor", href: "/supervisor", icon: UserCheck, permission: "supervisor-panel" },
-  { name: "Panel Ejecutivo", href: "/ejecutivo", icon: Briefcase, permission: "ejecutivo-panel" },
-  { name: "Reportes", href: "/reportes", icon: BarChart3, permission: "reportes" },
-  { name: "Configuración", href: "/configuracion", icon: Settings, permission: "configuracion" },
-]
+const getNavigationForRole = (role: string) => {
+  const baseNavigation = {
+    admin: [
+      { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, permission: "dashboard" },
+      { name: "Usuarios", href: "/usuarios", icon: Users, permission: "usuarios" },
+      { name: "Equipos", href: "/equipos", icon: Users, permission: "equipos" },
+      { name: "Mapa Feedback", href: "/mapa-feedback", icon: MessageSquare, permission: "mapa-feedback" },
+      { name: "Mapa Dibujo", href: "/mapa-dibujo", icon: Edit3, permission: "mapa-dibujo" },
+      { name: "Optimizar Rutas", href: "/optimizar-rutas", icon: Route, permission: "optimizar-rutas" },
+      { name: "Exportar", href: "/exportar", icon: Download, permission: "exportar" },
+      { name: "Reportes", href: "/reportes", icon: BarChart3, permission: "reportes" },
+      { name: "Configuración", href: "/configuracion", icon: Settings, permission: "configuracion" },
+    ],
+    supervisor: [
+      { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, permission: "dashboard" },
+      { name: "Panel Supervisor", href: "/supervisor", icon: UserCheck, permission: "supervisor-panel" },
+      { name: "Usuarios", href: "/usuarios", icon: Users, permission: "usuarios" },
+      { name: "Equipos", href: "/equipos", icon: Users, permission: "equipos" },
+      { name: "Mapa Feedback", href: "/mapa-feedback", icon: MessageSquare, permission: "mapa-feedback" },
+      { name: "Optimizar Rutas", href: "/optimizar-rutas", icon: Route, permission: "optimizar-rutas" },
+      { name: "Reportes", href: "/reportes", icon: BarChart3, permission: "reportes" },
+    ],
+    ejecutivo: [
+      { name: "Panel Ejecutivo", href: "/ejecutivo", icon: Briefcase, permission: "ejecutivo-panel" },
+      { name: "Mapa Feedback", href: "/mapa-feedback", icon: MessageSquare, permission: "mapa-feedback" },
+    ],
+  }
+
+  return baseNavigation[role as keyof typeof baseNavigation] || []
+}
 
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
-  const { logout, user } = useAuth()
+  const { logout, user, adminMode, setAdminMode, isAdminModeActive } = useAuth()
+
+  const currentRole = user?.role === "admin" && adminMode ? adminMode : user?.role
+  const navigation = currentRole ? getNavigationForRole(currentRole) : []
 
   const handleLogout = () => {
     logout()
@@ -56,9 +77,23 @@ export function Sidebar() {
         </Button>
         <h1 className="ml-4 text-xl font-bold text-gray-900">GeoVision</h1>
         {user && (
-          <div className="ml-auto text-sm text-gray-600">
-            <span className="capitalize font-medium">{user.role}</span>
-            {user.department && <span className="ml-2 text-gray-400">• {user.department}</span>}
+          <div className="ml-auto flex items-center gap-4">
+            {user.role === "admin" && (
+              <Select value={adminMode || "admin"} onValueChange={(value) => setAdminMode(value as any)}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Modo Admin</SelectItem>
+                  <SelectItem value="supervisor">Modo Supervisor</SelectItem>
+                  <SelectItem value="ejecutivo">Modo Ejecutivo</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+            <div className="text-sm text-gray-600">
+              <span className="capitalize font-medium">{isAdminModeActive ? `${adminMode} (Admin)` : user.role}</span>
+              {user.department && <span className="ml-2 text-gray-400">• {user.department}</span>}
+            </div>
           </div>
         )}
       </div>
@@ -107,7 +142,9 @@ export function Sidebar() {
               <div className="mb-3">
                 <p className="text-sm font-medium text-gray-900">{user.name}</p>
                 <p className="text-xs text-gray-500">{user.email}</p>
-                <p className="text-xs text-blue-600 capitalize font-medium">{user.role}</p>
+                <p className="text-xs text-blue-600 capitalize font-medium">
+                  {isAdminModeActive ? `${adminMode} (Admin)` : user.role}
+                </p>
               </div>
             )}
             <Button
