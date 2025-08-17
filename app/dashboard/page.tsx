@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { ProtectedRoute } from "@/components/protected-route"
 import { Sidebar } from "@/components/sidebar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { api } from "@/lib/api"
+import { DatabaseService } from "@/lib/services/database.service"
 import { Loader2, Users, Route, CheckCircle, TrendingUp } from "lucide-react"
 import { MetricsChart } from "@/components/metrics-chart"
 import { StatsCards } from "@/components/stats-cards"
@@ -28,7 +28,8 @@ export default function DashboardPage() {
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
-        const dashboardData = await api.getDashboardMetrics()
+        const dbService = new DatabaseService()
+        const dashboardData = await dbService.getDashboardMetrics()
         setData(dashboardData)
       } catch (error) {
         console.error("Error loading dashboard data:", error)

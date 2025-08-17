@@ -23,6 +23,12 @@ import {
   Settings,
   MessageCircle,
   MapPin,
+  Shield,
+  Tags,
+  MapPinned,
+  Globe,
+  FileText,
+  Calendar,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
@@ -31,7 +37,15 @@ const getNavigationForRole = (role: string) => {
     admin: [
       { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, permission: "dashboard" },
       { name: "Usuarios", href: "/usuarios", icon: Users, permission: "usuarios" },
+      { name: "Roles", href: "/roles", icon: Shield, permission: "roles" },
       { name: "Equipos", href: "/equipos", icon: Users, permission: "equipos" },
+      { name: "Planes de Trabajo", href: "/planes-trabajo", icon: Calendar, permission: "planes-trabajo" },
+      { name: "Direcciones", href: "/direcciones", icon: MapPin, permission: "direcciones" },
+      { name: "Zonas Geográficas", href: "/zonas-geograficas", icon: MapPinned, permission: "zonas-geograficas" },
+      { name: "Canales", href: "/canales", icon: MessageSquare, permission: "canales" },
+      { name: "Clasificaciones", href: "/clasificaciones", icon: Tags, permission: "clasificaciones" },
+      { name: "Estados Direcciones", href: "/estados-direcciones", icon: FileText, permission: "estados-direcciones" },
+      { name: "Comunas", href: "/comunas", icon: Globe, permission: "comunas" },
       { name: "Mapa Feedback", href: "/mapa-feedback", icon: MessageSquare, permission: "mapa-feedback" },
       { name: "Mapa Dibujo", href: "/mapa-dibujo", icon: Edit3, permission: "mapa-dibujo" },
       { name: "Optimizar Rutas", href: "/optimizar-rutas", icon: Route, permission: "optimizar-rutas" },
@@ -44,6 +58,8 @@ const getNavigationForRole = (role: string) => {
       { name: "Panel Supervisor", href: "/supervisor", icon: UserCheck, permission: "supervisor-panel" },
       { name: "Usuarios", href: "/usuarios", icon: Users, permission: "usuarios" },
       { name: "Equipos", href: "/equipos", icon: Users, permission: "equipos" },
+      { name: "Planes de Trabajo", href: "/planes-trabajo", icon: Calendar, permission: "planes-trabajo" },
+      { name: "Direcciones", href: "/direcciones", icon: MapPin, permission: "direcciones" },
       { name: "Mapa Feedback", href: "/mapa-feedback", icon: MessageSquare, permission: "mapa-feedback" },
       { name: "Optimizar Rutas", href: "/optimizar-rutas", icon: Route, permission: "optimizar-rutas" },
       { name: "Reportes", href: "/reportes", icon: BarChart3, permission: "reportes" },
