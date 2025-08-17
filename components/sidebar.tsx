@@ -21,6 +21,8 @@ import {
   Briefcase,
   BarChart3,
   Settings,
+  MessageCircle,
+  MapPin,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
@@ -48,6 +50,8 @@ const getNavigationForRole = (role: string) => {
     ],
     ejecutivo: [
       { name: "Panel Ejecutivo", href: "/ejecutivo", icon: Briefcase, permission: "ejecutivo-panel" },
+      { name: "Mis Comentarios", href: "/comentarios", icon: MessageCircle, permission: "comentarios" },
+      { name: "Mis Direcciones", href: "/direcciones", icon: MapPin, permission: "direcciones" },
       { name: "Mapa Feedback", href: "/mapa-feedback", icon: MessageSquare, permission: "mapa-feedback" },
     ],
   }

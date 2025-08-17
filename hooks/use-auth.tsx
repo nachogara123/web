@@ -45,6 +45,8 @@ const mockUsers = [
       "supervisor-panel",
       "ejecutivo-panel",
       "equipos",
+      "comentarios",
+      "direcciones",
     ],
   },
   {
@@ -69,7 +71,7 @@ const mockUsers = [
     name: "Ana Ejecutiva",
     role: "ejecutivo" as UserRole,
     department: "Ventas",
-    permissions: ["dashboard", "mapa-feedback", "mapa-dibujo", "ejecutivo-panel"],
+    permissions: ["dashboard", "mapa-feedback", "mapa-dibujo", "ejecutivo-panel", "comentarios", "direcciones"],
   },
   {
     id: "4",
@@ -93,7 +95,7 @@ const mockUsers = [
     name: "Luis Ejecutivo",
     role: "ejecutivo" as UserRole,
     department: "Marketing",
-    permissions: ["dashboard", "mapa-feedback", "mapa-dibujo", "ejecutivo-panel"],
+    permissions: ["dashboard", "mapa-feedback", "mapa-dibujo", "ejecutivo-panel", "comentarios", "direcciones"],
   },
 ]
 
