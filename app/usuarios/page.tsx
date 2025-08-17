@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,61 +17,17 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Plus, Edit, Trash2, Filter, Upload, FileText } from "lucide-react"
+import { Search, Plus, Edit, Trash2, Filter, Upload, FileText, Loader2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { PermissionGuard } from "@/components/permission-guard"
-
-interface User {
-  id: string
-  name: string
-  email: string
-  role: "admin" | "user" | "viewer"
-  status: "active" | "inactive"
-  lastLogin: string
-  createdAt: string
-}
-
-const mockUsers: User[] = [
-  {
-    id: "1",
-    name: "Juan Pérez",
-    email: "juan@geovision.com",
-    role: "admin",
-    status: "active",
-    lastLogin: "2024-01-15",
-    createdAt: "2023-06-01",
-  },
-  {
-    id: "2",
-    name: "María García",
-    email: "maria@geovision.com",
-    role: "user",
-    status: "active",
-    lastLogin: "2024-01-14",
-    createdAt: "2023-07-15",
-  },
-  {
-    id: "3",
-    name: "Carlos López",
-    email: "carlos@geovision.com",
-    role: "viewer",
-    status: "inactive",
-    lastLogin: "2024-01-10",
-    createdAt: "2023-08-20",
-  },
-  {
-    id: "4",
-    name: "Ana Martínez",
-    email: "ana@geovision.com",
-    role: "user",
-    status: "active",
-    lastLogin: "2024-01-15",
-    createdAt: "2023-09-05",
-  },
-]
+import { api, type User } from "@/lib/api"
+import { RolService } from "@/lib/services/rol.service"
+import type { Rol } from "@prisma/client"
 
 export default function UsuariosPage() {
-  const [users, setUsers] = useState<User[]>(mockUsers)
+  const [users, setUsers] = useState<User[]>([])
+  const [roles, setRoles] = useState<Rol[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -83,9 +39,40 @@ export default function UsuariosPage() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    role: "user" as User["role"],
+    password: "",
+    role: "",
     status: "active" as User["status"],
   })
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true)
+        const [usersData, rolesData] = await Promise.all([api.getAllUsers(), RolService.obtenerTodos()])
+        setUsers(usersData)
+        setRoles(rolesData)
+      } catch (error) {
+        console.error("Error cargando datos:", error)
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar los datos. Usando datos de ejemplo.",
+          variant: "destructive",
+        })
+        // Datos de respaldo
+        setUsers([])
+        setRoles([
+          { id_rol: "1", nombre: "Administrador", created_at: new Date() },
+          { id_rol: "2", nombre: "Supervisor", created_at: new Date() },
+          { id_rol: "3", nombre: "Ejecutivo", created_at: new Date() },
+        ])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [])
 
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
@@ -99,39 +86,87 @@ export default function UsuariosPage() {
     })
   }, [users, searchTerm, roleFilter, statusFilter])
 
-  const handleCreateUser = () => {
-    const newUser: User = {
-      id: Date.now().toString(),
-      name: formData.name,
-      email: formData.email,
-      role: formData.role,
-      status: formData.status,
-      lastLogin: "Nunca",
-      createdAt: new Date().toISOString().split("T")[0],
+  const handleCreateUser = async () => {
+    if (!formData.name || !formData.email || !formData.password || !formData.role) {
+      toast({
+        title: "Error",
+        description: "Todos los campos son obligatorios.",
+        variant: "destructive",
+      })
+      return
     }
 
-    setUsers([...users, newUser])
-    setIsCreateDialogOpen(false)
-    setFormData({ name: "", email: "", role: "user", status: "active" })
-    toast({
-      title: "Usuario creado",
-      description: "El usuario ha sido creado exitosamente.",
-    })
+    try {
+      setSubmitting(true)
+      const newUser = await api.createUser({
+        nombre: formData.name,
+        email: formData.email,
+        clave: formData.password, // En producción, esto debería ser hasheado
+        rol_id: formData.role,
+      })
+
+      setUsers([...users, newUser])
+      setIsCreateDialogOpen(false)
+      setFormData({ name: "", email: "", password: "", role: "", status: "active" })
+      toast({
+        title: "Usuario creado",
+        description: "El usuario ha sido creado exitosamente.",
+      })
+    } catch (error) {
+      console.error("Error creando usuario:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo crear el usuario. Inténtalo de nuevo.",
+        variant: "destructive",
+      })
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  const handleEditUser = () => {
-    if (!selectedUser) return
+  const handleEditUser = async () => {
+    if (!selectedUser || !formData.name || !formData.email || !formData.role) {
+      toast({
+        title: "Error",
+        description: "Todos los campos son obligatorios.",
+        variant: "destructive",
+      })
+      return
+    }
 
-    const updatedUsers = users.map((user) => (user.id === selectedUser.id ? { ...user, ...formData } : user))
+    try {
+      setSubmitting(true)
+      const updateData: any = {
+        nombre: formData.name,
+        email: formData.email,
+        rol_id: formData.role,
+      }
 
-    setUsers(updatedUsers)
-    setIsEditDialogOpen(false)
-    setSelectedUser(null)
-    setFormData({ name: "", email: "", role: "user", status: "active" })
-    toast({
-      title: "Usuario actualizado",
-      description: "Los datos del usuario han sido actualizados.",
-    })
+      if (formData.password) {
+        updateData.clave = formData.password
+      }
+
+      const updatedUser = await api.updateUser(selectedUser.id, updateData)
+      const updatedUsers = users.map((user) => (user.id === selectedUser.id ? updatedUser : user))
+
+      setUsers(updatedUsers)
+      setIsEditDialogOpen(false)
+      setSelectedUser(null)
+      setFormData({ name: "", email: "", password: "", role: "", status: "active" })
+      toast({
+        title: "Usuario actualizado",
+        description: "Los datos del usuario han sido actualizados.",
+      })
+    } catch (error) {
+      console.error("Error actualizando usuario:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el usuario. Inténtalo de nuevo.",
+        variant: "destructive",
+      })
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleBulkUpload = () => {
@@ -139,15 +174,16 @@ export default function UsuariosPage() {
 
     // Mock processing of CSV file
     const mockNewUsers = [
-      { name: "Usuario Masivo 1", email: "user1@bulk.com", role: "user" as const, status: "active" as const },
-      { name: "Usuario Masivo 2", email: "user2@bulk.com", role: "user" as const, status: "active" as const },
+      { name: "Usuario Masivo 1", email: "user1@bulk.com", role: roles[0]?.id_rol || "", status: "active" as const },
+      { name: "Usuario Masivo 2", email: "user2@bulk.com", role: roles[0]?.id_rol || "", status: "active" as const },
     ]
 
     const newUsers = mockNewUsers.map((userData) => ({
       id: Date.now().toString() + Math.random(),
       ...userData,
-      lastLogin: "Nunca",
-      createdAt: new Date().toISOString().split("T")[0],
+      roleName: roles.find((r) => r.id_rol === userData.role)?.nombre,
+      lastAccess: undefined,
+      createdAt: new Date().toISOString(),
     }))
 
     setUsers([...users, ...newUsers])
@@ -159,12 +195,22 @@ export default function UsuariosPage() {
     })
   }
 
-  const handleDeleteUser = (userId: string) => {
-    setUsers(users.filter((user) => user.id !== userId))
-    toast({
-      title: "Usuario eliminado",
-      description: "El usuario ha sido eliminado del sistema.",
-    })
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      await api.deleteUser(userId)
+      setUsers(users.filter((user) => user.id !== userId))
+      toast({
+        title: "Usuario eliminado",
+        description: "El usuario ha sido eliminado del sistema.",
+      })
+    } catch (error) {
+      console.error("Error eliminando usuario:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar el usuario. Inténtalo de nuevo.",
+        variant: "destructive",
+      })
+    }
   }
 
   const openEditDialog = (user: User) => {
@@ -172,27 +218,39 @@ export default function UsuariosPage() {
     setFormData({
       name: user.name,
       email: user.email,
+      password: "", // No mostrar contraseña actual
       role: user.role,
       status: user.status,
     })
     setIsEditDialogOpen(true)
   }
 
-  const getRoleBadgeColor = (role: string) => {
-    switch (role) {
-      case "admin":
-        return "bg-red-100 text-red-800"
-      case "user":
-        return "bg-blue-100 text-blue-800"
-      case "viewer":
-        return "bg-gray-100 text-gray-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
+  const getRoleBadgeColor = (roleId: string) => {
+    const role = roles.find((r) => r.id_rol === roleId)
+    const roleName = role?.nombre.toLowerCase() || ""
+
+    if (roleName.includes("admin")) return "bg-red-100 text-red-800"
+    if (roleName.includes("supervisor")) return "bg-blue-100 text-blue-800"
+    return "bg-gray-100 text-gray-800"
   }
 
   const getStatusBadgeColor = (status: string) => {
     return status === "active" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+  }
+
+  const getRoleName = (roleId: string) => {
+    return roles.find((r) => r.id_rol === roleId)?.nombre || "Desconocido"
+  }
+
+  if (loading) {
+    return (
+      <div className="pt-16 p-6 space-y-6 bg-gray-50 min-h-screen">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          <span className="ml-2 text-gray-600">Cargando usuarios...</span>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -264,7 +322,7 @@ export default function UsuariosPage() {
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="name">Nombre</Label>
+                  <Label htmlFor="name">Nombre *</Label>
                   <Input
                     id="name"
                     value={formData.name}
@@ -273,7 +331,7 @@ export default function UsuariosPage() {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">Email *</Label>
                   <Input
                     id="email"
                     type="email"
@@ -283,42 +341,39 @@ export default function UsuariosPage() {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="role">Rol</Label>
-                  <Select
-                    value={formData.role}
-                    onValueChange={(value: User["role"]) => setFormData({ ...formData, role: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="admin">Administrador</SelectItem>
-                      <SelectItem value="user">Usuario</SelectItem>
-                      <SelectItem value="viewer">Visualizador</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="password">Contraseña *</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    placeholder="Contraseña segura"
+                  />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="status">Estado</Label>
-                  <Select
-                    value={formData.status}
-                    onValueChange={(value: User["status"]) => setFormData({ ...formData, status: value })}
-                  >
+                  <Label htmlFor="role">Rol *</Label>
+                  <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Seleccionar rol" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="active">Activo</SelectItem>
-                      <SelectItem value="inactive">Inactivo</SelectItem>
+                      {roles.map((role) => (
+                        <SelectItem key={role.id_rol} value={role.id_rol}>
+                          {role.nombre}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={submitting}>
                   Cancelar
                 </Button>
-                <Button onClick={handleCreateUser}>Crear Usuario</Button>
+                <Button onClick={handleCreateUser} disabled={submitting}>
+                  {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Crear Usuario
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -352,9 +407,11 @@ export default function UsuariosPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos los roles</SelectItem>
-                  <SelectItem value="admin">Administrador</SelectItem>
-                  <SelectItem value="user">Usuario</SelectItem>
-                  <SelectItem value="viewer">Visualizador</SelectItem>
+                  {roles.map((role) => (
+                    <SelectItem key={role.id_rol} value={role.id_rol}>
+                      {role.nombre}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
@@ -393,17 +450,17 @@ export default function UsuariosPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge className={getRoleBadgeColor(user.role)}>
-                        {user.role === "admin" ? "Administrador" : user.role === "user" ? "Usuario" : "Visualizador"}
-                      </Badge>
+                      <Badge className={getRoleBadgeColor(user.role)}>{getRoleName(user.role)}</Badge>
                     </TableCell>
                     <TableCell>
                       <Badge className={getStatusBadgeColor(user.status)}>
                         {user.status === "active" ? "Activo" : "Inactivo"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-gray-700">{user.lastLogin}</TableCell>
-                    <TableCell className="text-gray-700">{user.createdAt}</TableCell>
+                    <TableCell className="text-gray-700">{user.lastAccess || "Nunca"}</TableCell>
+                    <TableCell className="text-gray-700">
+                      {new Date(user.createdAt).toLocaleDateString("es-ES")}
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button
@@ -440,7 +497,7 @@ export default function UsuariosPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="edit-name">Nombre</Label>
+              <Label htmlFor="edit-name">Nombre *</Label>
               <Input
                 id="edit-name"
                 value={formData.name}
@@ -448,7 +505,7 @@ export default function UsuariosPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-email">Email</Label>
+              <Label htmlFor="edit-email">Email *</Label>
               <Input
                 id="edit-email"
                 type="email"
@@ -457,42 +514,39 @@ export default function UsuariosPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-role">Rol</Label>
-              <Select
-                value={formData.role}
-                onValueChange={(value: User["role"]) => setFormData({ ...formData, role: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Administrador</SelectItem>
-                  <SelectItem value="user">Usuario</SelectItem>
-                  <SelectItem value="viewer">Visualizador</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="edit-password">Nueva Contraseña (opcional)</Label>
+              <Input
+                id="edit-password"
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                placeholder="Dejar vacío para mantener actual"
+              />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-status">Estado</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value: User["status"]) => setFormData({ ...formData, status: value })}
-              >
+              <Label htmlFor="edit-role">Rol *</Label>
+              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Activo</SelectItem>
-                  <SelectItem value="inactive">Inactivo</SelectItem>
+                  {roles.map((role) => (
+                    <SelectItem key={role.id_rol} value={role.id_rol}>
+                      {role.nombre}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={submitting}>
               Cancelar
             </Button>
-            <Button onClick={handleEditUser}>Guardar Cambios</Button>
+            <Button onClick={handleEditUser} disabled={submitting}>
+              {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Guardar Cambios
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

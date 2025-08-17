@@ -1,0 +1,255 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Rol {
+  id_rol     String   @id @default(uuid()) @db.Uuid
+  nombre     String   @unique @db.VarChar(100)
+  created_at DateTime @default(now())
+
+  // Relaciones
+  usuarios Usuario[]
+
+  @@map("roles")
+}
+
+model Usuario {
+  id_user    String   @id @default(uuid()) @db.Uuid
+  nombre     String   @db.VarChar(100)
+  email      String   @unique @db.VarChar(150)
+  clave      String
+  rol_id     String   @db.Uuid
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Relaciones
+  rol                    Rol                     @relation(fields: [rol_id], references: [id_rol])
+  equipos_supervisados   Equipo[]                @relation("SupervisorEquipo")
+  equipos_asignados      UsuarioEquipo[]
+  planes_creados         PlanTrabajo[]           @relation("PlanCreadoPor")
+  planes_actualizados    PlanTrabajo[]           @relation("PlanActualizadoPor")
+  rutas_sugeridas        RutaSugerida[]
+  zonas_prioritarias     ZonaPrioritaria[]
+  zonas_asignadas        ZonaAsignada[]
+  historial_ubicaciones  HistorialUbicacion[]
+  historias_comentarios  HistoriaComentario[]
+  comentarios_creados    ComentarioPre[]
+
+  @@map("usuarios")
+}
+
+model Equipo {
+  id_equipo       String   @id @default(uuid()) @db.Uuid
+  nombre          String   @db.VarChar(100)
+  tipo            String   @db.VarChar(50)
+  fecha_creacion  DateTime @db.Date
+  id_supervisor   String   @db.Uuid
+
+  // Relaciones
+  supervisor      Usuario           @relation("SupervisorEquipo", fields: [id_supervisor], references: [id_user])
+  usuarios        UsuarioEquipo[]
+  planes_trabajo  PlanTrabajo[]
+
+  @@map("equipos")
+}
+
+model UsuarioEquipo {
+  id_usuario       String   @db.Uuid
+  id_equipo        String   @db.Uuid
+  fecha_asignacion DateTime @db.Date
+
+  // Relaciones
+  usuario Usuario @relation(fields: [id_usuario], references: [id_user])
+  equipo  Equipo  @relation(fields: [id_equipo], references: [id_equipo])
+
+  @@id([id_usuario, id_equipo])
+  @@map("usuarios_equipos")
+}
+
+model PlanTrabajo {
+  id_plan          String   @id @default(uuid()) @db.Uuid
+  id_equipo        String   @db.Uuid
+  semana           Int
+  año              Int
+  fecha_inicio     DateTime @db.Date
+  fecha_fin        DateTime @db.Date
+  objetivos        String?
+  estado           String   @db.VarChar(50)
+  creado_por       String   @db.Uuid
+  actualizado_por  String   @db.Uuid
+
+  // Relaciones
+  equipo           Equipo  @relation(fields: [id_equipo], references: [id_equipo])
+  usuario_creador  Usuario @relation("PlanCreadoPor", fields: [creado_por], references: [id_user])
+  usuario_actualizador Usuario @relation("PlanActualizadoPor", fields: [actualizado_por], references: [id_user])
+
+  @@map("planes_trabajo")
+}
+
+model RutaSugerida {
+  id_ruta    String @id @default(uuid()) @db.Uuid
+  nombre     String @db.VarChar(100)
+  geom       String // Geometry as string for now
+  prioridad  Int
+  id_usuario String @db.Uuid
+
+  // Relaciones
+  usuario Usuario @relation(fields: [id_usuario], references: [id_user])
+
+  @@map("rutas_sugeridas")
+}
+
+model ZonaPrioritaria {
+  id_zona          String @id @default(uuid()) @db.Uuid
+  nombre           String @db.VarChar(100)
+  geom             String // Geometry as string for now
+  nivel_prioridad  Int
+  id_usuario       String @db.Uuid
+
+  // Relaciones
+  usuario Usuario @relation(fields: [id_usuario], references: [id_user])
+
+  @@map("zonas_prioritarias")
+}
+
+model ZonaAsignada {
+  id_zona          String   @id @default(uuid()) @db.Uuid
+  id_usuario       String   @db.Uuid
+  nombre           String   @db.VarChar(100)
+  geom             String   // Geometry as string for now
+  fecha_asignacion DateTime
+
+  // Relaciones
+  usuario Usuario @relation(fields: [id_usuario], references: [id_user])
+
+  @@map("zonas_asignadas")
+}
+
+model HistorialUbicacion {
+  id_historial String   @id @default(uuid()) @db.Uuid
+  id_usuario   String   @db.Uuid
+  fecha_hora   DateTime
+  geom         String   // Geometry as string for now
+
+  // Relaciones
+  usuario Usuario @relation(fields: [id_usuario], references: [id_user])
+
+  @@map("historial_ubicaciones")
+}
+
+model Direccion {
+  id_direccion       Int      @id @default(autoincrement())
+  direccion_final    String?
+  lon                Float?   @db.DoublePrecision
+  lat                Float?   @db.DoublePrecision
+  id_canal           Int
+  id_comuna          Int
+  id_tipo_vivienda   Int
+  nota               String?  @db.VarChar(500)
+  hub_feeder_zona    String?  @db.VarChar(100)
+  id_cto             String?  @db.VarChar(100)
+  id_estado          Int
+  id_clasificacion   Int
+  contador           Int?
+  total_comentarios  Int?
+  geom               String?  // Geometry as string for now
+  created_at         DateTime @default(now())
+
+  // Relaciones
+  canal              Canal              @relation(fields: [id_canal], references: [id_canal])
+  comuna             Comuna             @relation(fields: [id_comuna], references: [id_comuna])
+  tipo_vivienda      TipoVivienda       @relation(fields: [id_tipo_vivienda], references: [id_tipo_vivienda])
+  estado             EstadoDireccion    @relation(fields: [id_estado], references: [id_estado])
+  clasificacion      Clasificacion      @relation(fields: [id_clasificacion], references: [id_clasificacion])
+  historias_comentarios HistoriaComentario[]
+
+  @@map("direcciones")
+}
+
+model HistoriaComentario {
+  id_histo         String   @id @default(uuid()) @db.Uuid
+  id_direccion     Int
+  id_comentario    String   @db.Uuid
+  id_usuario       String   @db.Uuid
+  fecha_comentario DateTime
+
+  // Relaciones
+  direccion  Direccion     @relation(fields: [id_direccion], references: [id_direccion])
+  comentario ComentarioPre @relation(fields: [id_comentario], references: [id_coment])
+  usuario    Usuario       @relation(fields: [id_usuario], references: [id_user])
+
+  @@map("historias_comentarios")
+}
+
+model ComentarioPre {
+  id_coment      String   @id @default(uuid()) @db.Uuid
+  comentario     String   @db.VarChar(1000)
+  tipo_feedback  String?  @db.VarChar(50)
+  categoria      String?  @db.VarChar(50)
+  created_at     DateTime @default(now())
+  creado_por     String?  @db.Uuid
+
+  // Relaciones
+  usuario_creador       Usuario?              @relation(fields: [creado_por], references: [id_user])
+  historias_comentarios HistoriaComentario[]
+
+  @@map("comentarios_pre")
+}
+
+model Canal {
+  id_canal   Int    @id @default(autoincrement())
+  nombre     String @unique @db.VarChar(100)
+
+  // Relaciones
+  direcciones Direccion[]
+
+  @@map("canales")
+}
+
+model Comuna {
+  id_comuna Int    @id @default(autoincrement())
+  nombre    String @unique @db.VarChar(100)
+
+  // Relaciones
+  direcciones Direccion[]
+
+  @@map("comunas")
+}
+
+model EstadoDireccion {
+  id_estado Int    @id @default(autoincrement())
+  nombre    String @unique @db.VarChar(50)
+
+  // Relaciones
+  direcciones Direccion[]
+
+  @@map("estados_direccion")
+}
+
+model TipoVivienda {
+  id_tipo_vivienda Int    @id @default(autoincrement())
+  nombre           String @unique @db.VarChar(100)
+
+  // Relaciones
+  direcciones Direccion[]
+
+  @@map("tipos_vivienda")
+}
+
+model Clasificacion {
+  id_clasificacion Int    @id @default(autoincrement())
+  nombre           String @unique @db.VarChar(100)
+
+  // Relaciones
+  direcciones Direccion[]
+
+  @@map("clasificaciones")
+}
