@@ -23,6 +23,14 @@ import { toast } from "@/hooks/use-toast"
 import { PlanTrabajoService, type PlanTrabajoCompleto } from "@/lib/services/plan-trabajo.service"
 import { EquipoService, type EquipoConSupervisor } from "@/lib/services/equipo.service"
 
+const getWeekNumber = (date: Date): number => {
+  const tempDate = new Date(date.getTime())
+  tempDate.setHours(0, 0, 0, 0)
+  tempDate.setDate(tempDate.getDate() + 3 - ((tempDate.getDay() + 6) % 7))
+  const week1 = new Date(tempDate.getFullYear(), 0, 4)
+  return 1 + Math.round(((tempDate.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7)
+}
+
 export default function PlanesTrabajoPage() {
   const [planes, setPlanes] = useState<PlanTrabajoCompleto[]>([])
   const [equipos, setEquipos] = useState<EquipoConSupervisor[]>([])
@@ -32,7 +40,7 @@ export default function PlanesTrabajoPage() {
   const [selectedPlan, setSelectedPlan] = useState<PlanTrabajoCompleto | null>(null)
   const [formData, setFormData] = useState({
     id_equipo: "",
-    semana: new Date().getWeek(),
+    semana: getWeekNumber(new Date()), // Usando función standalone
     año: new Date().getFullYear(),
     fecha_inicio: "",
     fecha_fin: "",
@@ -40,15 +48,6 @@ export default function PlanesTrabajoPage() {
     estado: "planificado",
   })
   const [submitting, setSubmitting] = useState(false)
-
-  // Extensión para obtener número de semana
-  Date.prototype.getWeek = function () {
-    const date = new Date(this.getTime())
-    date.setHours(0, 0, 0, 0)
-    date.setDate(date.getDate() + 3 - ((date.getDay() + 6) % 7))
-    const week1 = new Date(date.getFullYear(), 0, 4)
-    return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7)
-  }
 
   useEffect(() => {
     const loadData = async () => {
@@ -199,7 +198,7 @@ export default function PlanesTrabajoPage() {
   const resetForm = () => {
     setFormData({
       id_equipo: "",
-      semana: new Date().getWeek(),
+      semana: getWeekNumber(new Date()), // Usando función standalone
       año: new Date().getFullYear(),
       fecha_inicio: "",
       fecha_fin: "",
@@ -411,7 +410,7 @@ export default function PlanesTrabajoPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Esta Semana</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {planes.filter((p) => p.semana === new Date().getWeek()).length}
+                  {planes.filter((p) => p.semana === getWeekNumber(new Date())).length}
                 </p>
               </div>
             </div>

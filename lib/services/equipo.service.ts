@@ -42,9 +42,9 @@ export class EquipoService {
             )
           ) FILTER (WHERE ue.id_usuario IS NOT NULL) as usuarios
         FROM equipos e
-        LEFT JOIN usuarios u ON e.id_supervisor = u.id_user
+        LEFT JOIN usuarios u ON e.id_supervisor = u.id_usuario
         LEFT JOIN usuarios_equipos ue ON e.id_equipo = ue.id_equipo
-        LEFT JOIN usuarios u2 ON ue.id_usuario = u2.id_user
+        LEFT JOIN usuarios u2 ON ue.id_usuario = u2.id_usuario
         GROUP BY e.id_equipo, u.nombre, u.email
         ORDER BY e.fecha_creacion DESC
       `
@@ -72,16 +72,16 @@ export class EquipoService {
           u.nombre as supervisor_nombre,
           u.email as supervisor_email
         FROM equipos e
-        LEFT JOIN usuarios u ON e.id_supervisor = u.id_user
+        LEFT JOIN usuarios u ON e.id_supervisor = u.id_usuario
         WHERE e.id_equipo = ${id}
       `
 
       if (result.length === 0) return null
 
       const usuarios = await sql`
-        SELECT u.id_user as id_usuario, u.nombre, u.email, ue.fecha_asignacion
+        SELECT u.id_usuario, u.nombre, u.email, ue.fecha_asignacion
         FROM usuarios_equipos ue
-        JOIN usuarios u ON ue.id_usuario = u.id_user
+        JOIN usuarios u ON ue.id_usuario = u.id_usuario
         WHERE ue.id_equipo = ${id}
       `
 
