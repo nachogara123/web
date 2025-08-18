@@ -1,6 +1,14 @@
 import { neon } from "@neondatabase/serverless"
 
-const sql = neon(process.env.DATABASE_URL!)
+const getDatabaseUrl = () => {
+  // URL específica proporcionada por el usuario
+  const specificUrl =
+    "postgresql://neondb_owner:npg_YSWDm3bHO6Gt@ep-falling-truth-adjz53rq-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+
+  return process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.NEON_DATABASE_URL || specificUrl
+}
+
+const sql = neon(getDatabaseUrl())
 
 export interface Direccion {
   id_direccion: number
