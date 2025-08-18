@@ -28,7 +28,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 const mockUsers = [
   {
-    id: "1",
+    id: "550e8400-e29b-41d4-a716-446655440001",
     email: "admin@geovision.com",
     name: "Administrador General",
     role: "admin" as UserRole,
@@ -50,7 +50,7 @@ const mockUsers = [
     ],
   },
   {
-    id: "2",
+    id: "550e8400-e29b-41d4-a716-446655440002",
     email: "supervisor@geovision.com",
     name: "Carlos Supervisor",
     role: "supervisor" as UserRole,
@@ -66,7 +66,7 @@ const mockUsers = [
     ],
   },
   {
-    id: "3",
+    id: "550e8400-e29b-41d4-a716-446655440003",
     email: "ejecutivo@geovision.com",
     name: "Ana Ejecutiva",
     role: "ejecutivo" as UserRole,
@@ -74,7 +74,7 @@ const mockUsers = [
     permissions: ["dashboard", "mapa-feedback", "mapa-dibujo", "ejecutivo-panel", "comentarios", "direcciones"],
   },
   {
-    id: "4",
+    id: "550e8400-e29b-41d4-a716-446655440004",
     email: "supervisor2@geovision.com",
     name: "María Supervisora",
     role: "supervisor" as UserRole,
@@ -90,7 +90,7 @@ const mockUsers = [
     ],
   },
   {
-    id: "5",
+    id: "550e8400-e29b-41d4-a716-446655440005",
     email: "ejecutivo2@geovision.com",
     name: "Luis Ejecutivo",
     role: "ejecutivo" as UserRole,

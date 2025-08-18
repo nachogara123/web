@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { MapPin, MessageSquare, Search, Filter, ChevronUp, ChevronDown, X } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import { useAuth } from "@/hooks/use-auth"
 
 // Importación dinámica para evitar problemas de SSR con Leaflet
 const MapComponent = dynamic(() => import("@/components/map-component"), {
@@ -151,15 +152,17 @@ const fetchComentariosPredefinidos = async (setComentariosPredefinidos: any) => 
     const response = await fetch("/api/comentarios-predefinidos")
     const result = await response.json()
 
-    if (result.success) {
+    if (result.success && Array.isArray(result.data)) {
       console.log(`[v0] Comentarios predefinidos obtenidos: ${result.data.length}`)
       console.log("[v0] Datos de comentarios predefinidos:", result.data)
       setComentariosPredefinidos(result.data)
     } else {
       console.error("[v0] Error obteniendo comentarios predefinidos:", result.message)
+      setComentariosPredefinidos([])
     }
   } catch (error) {
     console.error("[v0] Error obteniendo comentarios predefinidos:", error)
+    setComentariosPredefinidos([])
   }
 }
 
@@ -178,6 +181,7 @@ const handleSubmitFeedbackSimplificado = async (
   setComentarioSeleccionado: any,
   toast: any,
   comentariosPredefinidos: any,
+  user: any,
 ) => {
   if (!selectedFeature || !comentarioSeleccionado.trim()) {
     toast({
@@ -191,7 +195,7 @@ const handleSubmitFeedbackSimplificado = async (
   try {
     console.log("[v0] Enviando feedback simplificado a la base de datos...")
 
-    const comentarioPredefinido = comentariosPredefinidos.find((c) => c.comentario === comentarioSeleccionado)
+    const comentarioPredefinido = comentariosPredefinidos.find((c: any) => c.comentario === comentarioSeleccionado)
 
     const response = await fetch("/api/comentarios", {
       method: "POST",
@@ -203,7 +207,7 @@ const handleSubmitFeedbackSimplificado = async (
         tipo_feedback: comentarioPredefinido?.tipo_feedback || "informacion",
         categoria: comentarioPredefinido?.categoria || "otros",
         direccion_id: selectedFeature.properties.address?.id_direccion,
-        creado_por: "usuario-demo",
+        creado_por: user?.id || "550e8400-e29b-41d4-a716-446655440001", // Default to admin UUID if no user
       }),
     })
 
@@ -217,7 +221,9 @@ const handleSubmitFeedbackSimplificado = async (
         description: "Tu comentario ha sido guardado exitosamente.",
       })
     } else {
-      throw new Error("Error al enviar feedback")
+      const errorData = await response.json()
+      console.error("[v0] Error response:", errorData)
+      throw new Error(errorData.message || "Error al enviar feedback")
     }
   } catch (error) {
     console.error("[v0] Error enviando feedback:", error)
@@ -235,6 +241,7 @@ const getFeedbackTypeColor = (type: string, tiposFeedback: any) => {
 }
 
 export default function MapaFeedbackPage() {
+  const { user } = useAuth()
   const [direcciones, setDirecciones] = useState<DatabaseAddress[]>([])
   const [features, setFeatures] = useState<MapFeature[]>([])
   const [loading, setLoading] = useState(true)
@@ -350,6 +357,8 @@ export default function MapaFeedbackPage() {
 
   useEffect(() => {
     console.log("[v0] Estado actual de comentariosPredefinidos:", comentariosPredefinidos)
+    console.log("[v0] Tipo de comentariosPredefinidos:", typeof comentariosPredefinidos)
+    console.log("[v0] Es array:", Array.isArray(comentariosPredefinidos))
   }, [comentariosPredefinidos])
 
   return (
@@ -668,9 +677,11 @@ export default function MapaFeedbackPage() {
                       <SelectValue placeholder="Selecciona un comentario predefinido..." />
                     </SelectTrigger>
                     <SelectContent className="z-[10001] bg-white border shadow-lg">
-                      {comentariosPredefinidos.length === 0 ? (
+                      {!Array.isArray(comentariosPredefinidos) || comentariosPredefinidos.length === 0 ? (
                         <SelectItem value="no-comments" disabled>
-                          No hay comentarios predefinidos disponibles
+                          {comentariosPredefinidos.length === 0
+                            ? "Cargando comentarios..."
+                            : "No hay comentarios predefinidos disponibles"}
                         </SelectItem>
                       ) : (
                         comentariosPredefinidos.map((comentario: ComentarioPredefinido, index: number) => (
@@ -687,7 +698,7 @@ export default function MapaFeedbackPage() {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-gray-500">
-                    {comentariosPredefinidos.length > 0
+                    {Array.isArray(comentariosPredefinidos) && comentariosPredefinidos.length > 0
                       ? `${comentariosPredefinidos.length} comentarios disponibles`
                       : "Cargando comentarios predefinidos..."}
                   </p>
@@ -702,9 +713,14 @@ export default function MapaFeedbackPage() {
                       setComentarioSeleccionado,
                       toast,
                       comentariosPredefinidos,
+                      user,
                     )
                   }
-                  disabled={!comentarioSeleccionado.trim() || comentariosPredefinidos.length === 0}
+                  disabled={
+                    !comentarioSeleccionado.trim() ||
+                    !Array.isArray(comentariosPredefinidos) ||
+                    comentariosPredefinidos.length === 0
+                  }
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-md"
                 >
                   <MessageSquare className="mr-2 h-4 w-4" />
