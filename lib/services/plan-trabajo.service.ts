@@ -1,64 +1,92 @@
-import { BaseService } from "./base.service"
-import type { PlanTrabajo, Equipo, Usuario } from "@prisma/client"
+import { neon } from "@neondatabase/serverless"
 
-export type PlanTrabajoCompleto = PlanTrabajo & {
-  equipo: Equipo & {
-    supervisor: Usuario
-  }
-  usuario_creador: Usuario
-  usuario_actualizador: Usuario
+const sql = neon(process.env.DATABASE_URL!)
+
+export interface PlanTrabajo {
+  id_plan: string
+  id_equipo: string
+  semana: number
+  año: number
+  fecha_inicio: Date
+  fecha_fin: Date
+  objetivos?: string
+  estado: string
+  creado_por: string
+  actualizado_por: string
+  created_at: Date
+  updated_at: Date
 }
 
-export class PlanTrabajoService extends BaseService {
+export interface PlanTrabajoCompleto extends PlanTrabajo {
+  equipo_nombre?: string
+  supervisor_nombre?: string
+  usuario_creador_nombre?: string
+  usuario_actualizador_nombre?: string
+}
+
+export class PlanTrabajoService {
   static async obtenerTodos(): Promise<PlanTrabajoCompleto[]> {
     try {
-      return await this.prisma.planTrabajo.findMany({
-        include: {
-          equipo: {
-            include: { supervisor: true },
-          },
-          usuario_creador: true,
-          usuario_actualizador: true,
-        },
-        orderBy: { fecha_inicio: "desc" },
-      })
+      return await sql`
+        SELECT pt.*, 
+               e.nombre as equipo_nombre,
+               us.nombre as supervisor_nombre,
+               uc.nombre as usuario_creador_nombre,
+               ua.nombre as usuario_actualizador_nombre
+        FROM planes_trabajo pt
+        LEFT JOIN equipos e ON pt.id_equipo = e.id_equipo
+        LEFT JOIN usuarios us ON e.id_supervisor = us.id_user
+        LEFT JOIN usuarios uc ON pt.creado_por = uc.id_user
+        LEFT JOIN usuarios ua ON pt.actualizado_por = ua.id_user
+        ORDER BY pt.fecha_inicio DESC
+      `
     } catch (error) {
-      this.handleError(error, "obtener todos los planes de trabajo")
+      console.error("Error obteniendo planes de trabajo:", error)
+      throw new Error("Error al obtener planes de trabajo")
     }
   }
 
   static async obtenerPorEquipo(equipoId: string): Promise<PlanTrabajoCompleto[]> {
     try {
-      return await this.prisma.planTrabajo.findMany({
-        where: { id_equipo: equipoId },
-        include: {
-          equipo: {
-            include: { supervisor: true },
-          },
-          usuario_creador: true,
-          usuario_actualizador: true,
-        },
-        orderBy: { fecha_inicio: "desc" },
-      })
+      return await sql`
+        SELECT pt.*, 
+               e.nombre as equipo_nombre,
+               us.nombre as supervisor_nombre,
+               uc.nombre as usuario_creador_nombre,
+               ua.nombre as usuario_actualizador_nombre
+        FROM planes_trabajo pt
+        LEFT JOIN equipos e ON pt.id_equipo = e.id_equipo
+        LEFT JOIN usuarios us ON e.id_supervisor = us.id_user
+        LEFT JOIN usuarios uc ON pt.creado_por = uc.id_user
+        LEFT JOIN usuarios ua ON pt.actualizado_por = ua.id_user
+        WHERE pt.id_equipo = ${equipoId}
+        ORDER BY pt.fecha_inicio DESC
+      `
     } catch (error) {
-      this.handleError(error, "obtener planes por equipo")
+      console.error("Error obteniendo planes por equipo:", error)
+      throw new Error("Error al obtener planes por equipo")
     }
   }
 
   static async obtenerPorId(id: string): Promise<PlanTrabajoCompleto | null> {
     try {
-      return await this.prisma.planTrabajo.findUnique({
-        where: { id_plan: id },
-        include: {
-          equipo: {
-            include: { supervisor: true },
-          },
-          usuario_creador: true,
-          usuario_actualizador: true,
-        },
-      })
+      const result = await sql`
+        SELECT pt.*, 
+               e.nombre as equipo_nombre,
+               us.nombre as supervisor_nombre,
+               uc.nombre as usuario_creador_nombre,
+               ua.nombre as usuario_actualizador_nombre
+        FROM planes_trabajo pt
+        LEFT JOIN equipos e ON pt.id_equipo = e.id_equipo
+        LEFT JOIN usuarios us ON e.id_supervisor = us.id_user
+        LEFT JOIN usuarios uc ON pt.creado_por = uc.id_user
+        LEFT JOIN usuarios ua ON pt.actualizado_por = ua.id_user
+        WHERE pt.id_plan = ${id}
+      `
+      return result[0] || null
     } catch (error) {
-      this.handleError(error, "obtener plan por ID")
+      console.error("Error obteniendo plan por ID:", error)
+      throw new Error("Error al obtener plan por ID")
     }
   }
 
@@ -72,20 +100,24 @@ export class PlanTrabajoService extends BaseService {
     estado: string
     creado_por: string
     actualizado_por: string
-  }): Promise<PlanTrabajoCompleto> {
+  }): Promise<PlanTrabajo> {
     try {
-      return await this.prisma.planTrabajo.create({
-        data: datos,
-        include: {
-          equipo: {
-            include: { supervisor: true },
-          },
-          usuario_creador: true,
-          usuario_actualizador: true,
-        },
-      })
+      const result = await sql`
+        INSERT INTO planes_trabajo (
+          id_equipo, semana, año, fecha_inicio, fecha_fin, 
+          objetivos, estado, creado_por, actualizado_por
+        )
+        VALUES (
+          ${datos.id_equipo}, ${datos.semana}, ${datos.año}, 
+          ${datos.fecha_inicio}, ${datos.fecha_fin}, ${datos.objetivos || null},
+          ${datos.estado}, ${datos.creado_por}, ${datos.actualizado_por}
+        )
+        RETURNING *
+      `
+      return result[0]
     } catch (error) {
-      this.handleError(error, "crear plan de trabajo")
+      console.error("Error creando plan de trabajo:", error)
+      throw new Error("Error al crear plan de trabajo")
     }
   }
 
@@ -100,31 +132,27 @@ export class PlanTrabajoService extends BaseService {
       estado: string
       actualizado_por: string
     }>,
-  ): Promise<PlanTrabajoCompleto> {
+  ): Promise<PlanTrabajo> {
     try {
-      return await this.prisma.planTrabajo.update({
-        where: { id_plan: id },
-        data: datos,
-        include: {
-          equipo: {
-            include: { supervisor: true },
-          },
-          usuario_creador: true,
-          usuario_actualizador: true,
-        },
-      })
+      const result = await sql`
+        UPDATE planes_trabajo 
+        SET ${sql(datos)}, updated_at = NOW()
+        WHERE id_plan = ${id}
+        RETURNING *
+      `
+      return result[0]
     } catch (error) {
-      this.handleError(error, "actualizar plan de trabajo")
+      console.error("Error actualizando plan:", error)
+      throw new Error("Error al actualizar plan de trabajo")
     }
   }
 
   static async eliminar(id: string): Promise<void> {
     try {
-      await this.prisma.planTrabajo.delete({
-        where: { id_plan: id },
-      })
+      await sql`DELETE FROM planes_trabajo WHERE id_plan = ${id}`
     } catch (error) {
-      this.handleError(error, "eliminar plan de trabajo")
+      console.error("Error eliminando plan:", error)
+      throw new Error("Error al eliminar plan de trabajo")
     }
   }
 
@@ -134,39 +162,39 @@ export class PlanTrabajoService extends BaseService {
     porEquipo: Array<{ equipo: string; cantidad: number }>
   }> {
     try {
-      const total = await this.prisma.planTrabajo.count()
+      const totalResult = await sql`SELECT COUNT(*) as total FROM planes_trabajo`
+      const total = Number(totalResult[0].total)
 
-      const porEstado = await this.prisma.planTrabajo.groupBy({
-        by: ["estado"],
-        _count: { id_plan: true },
-        orderBy: { _count: { id_plan: "desc" } },
-      })
+      const porEstado = await sql`
+        SELECT estado, COUNT(*) as cantidad
+        FROM planes_trabajo
+        GROUP BY estado
+        ORDER BY cantidad DESC
+      `
 
-      const porEquipo = await this.prisma.planTrabajo.groupBy({
-        by: ["id_equipo"],
-        _count: { id_plan: true },
-        orderBy: { _count: { id_plan: "desc" } },
-        take: 10,
-      })
-
-      // Obtener nombres de equipos
-      const equiposInfo = await this.prisma.equipo.findMany({
-        where: { id_equipo: { in: porEquipo.map((e) => e.id_equipo) } },
-      })
+      const porEquipo = await sql`
+        SELECT e.nombre as equipo, COUNT(*) as cantidad
+        FROM planes_trabajo pt
+        JOIN equipos e ON pt.id_equipo = e.id_equipo
+        GROUP BY e.nombre, e.id_equipo
+        ORDER BY cantidad DESC
+        LIMIT 10
+      `
 
       return {
         total,
         porEstado: porEstado.map((e) => ({
           estado: e.estado,
-          cantidad: e._count.id_plan,
+          cantidad: Number(e.cantidad),
         })),
         porEquipo: porEquipo.map((e) => ({
-          equipo: equiposInfo.find((eq) => eq.id_equipo === e.id_equipo)?.nombre || "Desconocido",
-          cantidad: e._count.id_plan,
+          equipo: e.equipo,
+          cantidad: Number(e.cantidad),
         })),
       }
     } catch (error) {
-      this.handleError(error, "obtener estadísticas de planes")
+      console.error("Error obteniendo estadísticas:", error)
+      return { total: 0, porEstado: [], porEquipo: [] }
     }
   }
 }

@@ -1,72 +1,81 @@
-import { BaseService } from "./base.service"
-import type { Direccion, Canal, Comuna, TipoVivienda, EstadoDireccion, Clasificacion } from "@prisma/client"
+import { neon } from "@neondatabase/serverless"
 
-export type DireccionCompleta = Direccion & {
-  canal: Canal
-  comuna: Comuna
-  tipo_vivienda: TipoVivienda
-  estado: EstadoDireccion
-  clasificacion: Clasificacion
+const sql = neon(process.env.DATABASE_URL!)
+
+export interface Direccion {
+  id_direccion: number
+  direccion_final?: string
+  lon?: number
+  lat?: number
+  id_canal: number
+  id_comuna: number
+  id_tipo_vivienda: number
+  nota?: string
+  hub_feeder_zona?: string
+  id_cto?: string
+  id_estado: number
+  id_clasificacion: number
+  contador?: number
+  total_comentarios?: number
+  geom?: string
+  created_at: Date
+  updated_at: Date
 }
 
-export class DireccionService extends BaseService {
+export interface DireccionCompleta extends Direccion {
+  canal_nombre?: string
+  comuna_nombre?: string
+  tipo_vivienda_nombre?: string
+  estado_nombre?: string
+  clasificacion_nombre?: string
+}
+
+export class DireccionService {
   static async obtenerTodas(limite = 100, offset = 0): Promise<DireccionCompleta[]> {
     try {
-      return await this.prisma.direccion.findMany({
-        include: {
-          canal: true,
-          comuna: true,
-          tipo_vivienda: true,
-          estado: true,
-          clasificacion: true,
-        },
-        orderBy: { created_at: "desc" },
-        take: limite,
-        skip: offset,
-      })
+      return await sql`
+        SELECT d.*, 
+               c.nombre as canal_nombre,
+               com.nombre as comuna_nombre,
+               tv.nombre as tipo_vivienda_nombre,
+               ed.nombre as estado_nombre,
+               cl.nombre as clasificacion_nombre
+        FROM direcciones d
+        LEFT JOIN canales c ON d.id_canal = c.id_canal
+        LEFT JOIN comunas com ON d.id_comuna = com.id_comuna
+        LEFT JOIN tipos_vivienda tv ON d.id_tipo_vivienda = tv.id_tipo_vivienda
+        LEFT JOIN estados_direcciones ed ON d.id_estado = ed.id_estado
+        LEFT JOIN clasificaciones cl ON d.id_clasificacion = cl.id_clasificacion
+        ORDER BY d.created_at DESC
+        LIMIT ${limite} OFFSET ${offset}
+      `
     } catch (error) {
-      this.handleError(error, "obtener todas las direcciones")
+      console.error("Error obteniendo direcciones:", error)
+      throw new Error("Error al obtener direcciones")
     }
   }
 
   static async obtenerPorId(id: number): Promise<DireccionCompleta | null> {
     try {
-      return await this.prisma.direccion.findUnique({
-        where: { id_direccion: id },
-        include: {
-          canal: true,
-          comuna: true,
-          tipo_vivienda: true,
-          estado: true,
-          clasificacion: true,
-        },
-      })
+      const result = await sql`
+        SELECT d.*, 
+               c.nombre as canal_nombre,
+               com.nombre as comuna_nombre,
+               tv.nombre as tipo_vivienda_nombre,
+               ed.nombre as estado_nombre,
+               cl.nombre as clasificacion_nombre
+        FROM direcciones d
+        LEFT JOIN canales c ON d.id_canal = c.id_canal
+        LEFT JOIN comunas com ON d.id_comuna = com.id_comuna
+        LEFT JOIN tipos_vivienda tv ON d.id_tipo_vivienda = tv.id_tipo_vivienda
+        LEFT JOIN estados_direcciones ed ON d.id_estado = ed.id_estado
+        LEFT JOIN clasificaciones cl ON d.id_clasificacion = cl.id_clasificacion
+        WHERE d.id_direccion = ${id}
+      `
+      return result[0] || null
     } catch (error) {
-      this.handleError(error, "obtener dirección por ID")
-    }
-  }
-
-  static async obtenerPorArea(bounds: {
-    norte: number
-    sur: number
-    este: number
-    oeste: number
-  }): Promise<DireccionCompleta[]> {
-    try {
-      return await this.prisma.direccion.findMany({
-        where: {
-          AND: [{ lat: { gte: bounds.sur, lte: bounds.norte } }, { lon: { gte: bounds.oeste, lte: bounds.este } }],
-        },
-        include: {
-          canal: true,
-          comuna: true,
-          tipo_vivienda: true,
-          estado: true,
-          clasificacion: true,
-        },
-      })
-    } catch (error) {
-      this.handleError(error, "obtener direcciones por área")
+      console.error("Error obteniendo dirección:", error)
+      throw new Error("Error al obtener dirección")
     }
   }
 
@@ -85,20 +94,27 @@ export class DireccionService extends BaseService {
     contador?: number
     total_comentarios?: number
     geom?: string
-  }): Promise<DireccionCompleta> {
+  }): Promise<Direccion> {
     try {
-      return await this.prisma.direccion.create({
-        data: datos,
-        include: {
-          canal: true,
-          comuna: true,
-          tipo_vivienda: true,
-          estado: true,
-          clasificacion: true,
-        },
-      })
+      const result = await sql`
+        INSERT INTO direcciones (
+          direccion_final, lon, lat, id_canal, id_comuna, id_tipo_vivienda,
+          nota, hub_feeder_zona, id_cto, id_estado, id_clasificacion,
+          contador, total_comentarios, geom
+        )
+        VALUES (
+          ${datos.direccion_final || null}, ${datos.lon || null}, ${datos.lat || null},
+          ${datos.id_canal}, ${datos.id_comuna}, ${datos.id_tipo_vivienda},
+          ${datos.nota || null}, ${datos.hub_feeder_zona || null}, ${datos.id_cto || null},
+          ${datos.id_estado}, ${datos.id_clasificacion}, ${datos.contador || 0},
+          ${datos.total_comentarios || 0}, ${datos.geom || null}
+        )
+        RETURNING *
+      `
+      return result[0]
     } catch (error) {
-      this.handleError(error, "crear dirección")
+      console.error("Error creando dirección:", error)
+      throw new Error("Error al crear dirección")
     }
   }
 
@@ -120,31 +136,27 @@ export class DireccionService extends BaseService {
       total_comentarios: number
       geom: string
     }>,
-  ): Promise<DireccionCompleta> {
+  ): Promise<Direccion> {
     try {
-      return await this.prisma.direccion.update({
-        where: { id_direccion: id },
-        data: datos,
-        include: {
-          canal: true,
-          comuna: true,
-          tipo_vivienda: true,
-          estado: true,
-          clasificacion: true,
-        },
-      })
+      const result = await sql`
+        UPDATE direcciones 
+        SET ${sql(datos)}, updated_at = NOW()
+        WHERE id_direccion = ${id}
+        RETURNING *
+      `
+      return result[0]
     } catch (error) {
-      this.handleError(error, "actualizar dirección")
+      console.error("Error actualizando dirección:", error)
+      throw new Error("Error al actualizar dirección")
     }
   }
 
   static async eliminar(id: number): Promise<void> {
     try {
-      await this.prisma.direccion.delete({
-        where: { id_direccion: id },
-      })
+      await sql`DELETE FROM direcciones WHERE id_direccion = ${id}`
     } catch (error) {
-      this.handleError(error, "eliminar dirección")
+      console.error("Error eliminando dirección:", error)
+      throw new Error("Error al eliminar dirección")
     }
   }
 
@@ -154,43 +166,40 @@ export class DireccionService extends BaseService {
     porComuna: Array<{ comuna: string; cantidad: number }>
   }> {
     try {
-      const total = await this.prisma.direccion.count()
+      const totalResult = await sql`SELECT COUNT(*) as total FROM direcciones`
+      const total = Number(totalResult[0].total)
 
-      const porEstado = await this.prisma.direccion.groupBy({
-        by: ["id_estado"],
-        _count: { id_direccion: true },
-        orderBy: { _count: { id_direccion: "desc" } },
-      })
+      const porEstado = await sql`
+        SELECT ed.nombre as estado, COUNT(*) as cantidad
+        FROM direcciones d
+        JOIN estados_direcciones ed ON d.id_estado = ed.id_estado
+        GROUP BY ed.nombre, ed.id_estado
+        ORDER BY cantidad DESC
+      `
 
-      const porComuna = await this.prisma.direccion.groupBy({
-        by: ["id_comuna"],
-        _count: { id_direccion: true },
-        orderBy: { _count: { id_direccion: "desc" } },
-        take: 10,
-      })
-
-      // Obtener nombres de estados y comunas
-      const estadosInfo = await this.prisma.estadoDireccion.findMany({
-        where: { id_estado: { in: porEstado.map((e) => e.id_estado) } },
-      })
-
-      const comunasInfo = await this.prisma.comuna.findMany({
-        where: { id_comuna: { in: porComuna.map((c) => c.id_comuna) } },
-      })
+      const porComuna = await sql`
+        SELECT c.nombre as comuna, COUNT(*) as cantidad
+        FROM direcciones d
+        JOIN comunas c ON d.id_comuna = c.id_comuna
+        GROUP BY c.nombre, c.id_comuna
+        ORDER BY cantidad DESC
+        LIMIT 10
+      `
 
       return {
         total,
         porEstado: porEstado.map((e) => ({
-          estado: estadosInfo.find((est) => est.id_estado === e.id_estado)?.nombre || "Desconocido",
-          cantidad: e._count.id_direccion,
+          estado: e.estado,
+          cantidad: Number(e.cantidad),
         })),
         porComuna: porComuna.map((c) => ({
-          comuna: comunasInfo.find((com) => com.id_comuna === c.id_comuna)?.nombre || "Desconocida",
-          cantidad: c._count.id_direccion,
+          comuna: c.comuna,
+          cantidad: Number(c.cantidad),
         })),
       }
     } catch (error) {
-      this.handleError(error, "obtener estadísticas de direcciones")
+      console.error("Error obteniendo estadísticas:", error)
+      return { total: 0, porEstado: [], porComuna: [] }
     }
   }
 }

@@ -1,58 +1,65 @@
-import { BaseService } from "./base.service"
-import type { ComentarioPre, Usuario, HistoriaComentario, Direccion } from "@prisma/client"
+import { neon } from "@neondatabase/serverless"
 
-export type ComentarioCompleto = ComentarioPre & {
-  usuario_creador?: Usuario
-  historias_comentarios: Array<
-    HistoriaComentario & {
-      direccion: Direccion
-      usuario: Usuario
-    }
-  >
+const sql = neon(process.env.DATABASE_URL!)
+
+export interface ComentarioPre {
+  id_coment: string
+  comentario: string
+  tipo_feedback?: string
+  categoria?: string
+  creado_por?: string
+  created_at: Date
+  updated_at: Date
 }
 
-export class ComentarioService extends BaseService {
+export interface HistoriaComentario {
+  id_historia: string
+  id_comentario: string
+  id_direccion: number
+  id_usuario: string
+  fecha_comentario: Date
+  created_at: Date
+}
+
+export interface ComentarioCompleto extends ComentarioPre {
+  usuario_nombre?: string
+  historias_count?: number
+}
+
+export class ComentarioService {
   static async obtenerTodos(): Promise<ComentarioCompleto[]> {
     try {
-      return await this.prisma.comentarioPre.findMany({
-        include: {
-          usuario_creador: true,
-          historias_comentarios: {
-            include: {
-              direccion: true,
-              usuario: true,
-            },
-          },
-        },
-        orderBy: { created_at: "desc" },
-      })
+      return await sql`
+        SELECT cp.*, 
+               u.nombre as usuario_nombre,
+               COUNT(hc.id_historia) as historias_count
+        FROM comentarios_pre cp
+        LEFT JOIN usuarios u ON cp.creado_por = u.id_user
+        LEFT JOIN historias_comentarios hc ON cp.id_coment = hc.id_comentario
+        GROUP BY cp.id_coment, u.nombre
+        ORDER BY cp.created_at DESC
+      `
     } catch (error) {
-      this.handleError(error, "obtener todos los comentarios")
+      console.error("Error obteniendo comentarios:", error)
+      throw new Error("Error al obtener comentarios")
     }
   }
 
   static async obtenerPorDireccion(direccionId: number): Promise<ComentarioCompleto[]> {
     try {
-      return await this.prisma.comentarioPre.findMany({
-        where: {
-          historias_comentarios: {
-            some: { id_direccion: direccionId },
-          },
-        },
-        include: {
-          usuario_creador: true,
-          historias_comentarios: {
-            where: { id_direccion: direccionId },
-            include: {
-              direccion: true,
-              usuario: true,
-            },
-          },
-        },
-        orderBy: { created_at: "desc" },
-      })
+      return await sql`
+        SELECT cp.*, 
+               u.nombre as usuario_nombre,
+               hc.fecha_comentario
+        FROM comentarios_pre cp
+        JOIN historias_comentarios hc ON cp.id_coment = hc.id_comentario
+        LEFT JOIN usuarios u ON cp.creado_por = u.id_user
+        WHERE hc.id_direccion = ${direccionId}
+        ORDER BY hc.fecha_comentario DESC
+      `
     } catch (error) {
-      this.handleError(error, "obtener comentarios por dirección")
+      console.error("Error obteniendo comentarios por dirección:", error)
+      throw new Error("Error al obtener comentarios por dirección")
     }
   }
 
@@ -61,37 +68,29 @@ export class ComentarioService extends BaseService {
     tipo_feedback?: string
     categoria?: string
     creado_por?: string
-  }): Promise<ComentarioCompleto> {
+  }): Promise<ComentarioPre> {
     try {
-      return await this.prisma.comentarioPre.create({
-        data: datos,
-        include: {
-          usuario_creador: true,
-          historias_comentarios: {
-            include: {
-              direccion: true,
-              usuario: true,
-            },
-          },
-        },
-      })
+      const result = await sql`
+        INSERT INTO comentarios_pre (comentario, tipo_feedback, categoria, creado_por)
+        VALUES (${datos.comentario}, ${datos.tipo_feedback || null}, ${datos.categoria || null}, ${datos.creado_por || null})
+        RETURNING *
+      `
+      return result[0]
     } catch (error) {
-      this.handleError(error, "crear comentario")
+      console.error("Error creando comentario:", error)
+      throw new Error("Error al crear comentario")
     }
   }
 
   static async asignarADireccion(comentarioId: string, direccionId: number, usuarioId: string): Promise<void> {
     try {
-      await this.prisma.historiaComentario.create({
-        data: {
-          id_comentario: comentarioId,
-          id_direccion: direccionId,
-          id_usuario: usuarioId,
-          fecha_comentario: new Date(),
-        },
-      })
+      await sql`
+        INSERT INTO historias_comentarios (id_comentario, id_direccion, id_usuario, fecha_comentario)
+        VALUES (${comentarioId}, ${direccionId}, ${usuarioId}, NOW())
+      `
     } catch (error) {
-      this.handleError(error, "asignar comentario a dirección")
+      console.error("Error asignando comentario:", error)
+      throw new Error("Error al asignar comentario a dirección")
     }
   }
 
@@ -102,33 +101,27 @@ export class ComentarioService extends BaseService {
       tipo_feedback: string
       categoria: string
     }>,
-  ): Promise<ComentarioCompleto> {
+  ): Promise<ComentarioPre> {
     try {
-      return await this.prisma.comentarioPre.update({
-        where: { id_coment: id },
-        data: datos,
-        include: {
-          usuario_creador: true,
-          historias_comentarios: {
-            include: {
-              direccion: true,
-              usuario: true,
-            },
-          },
-        },
-      })
+      const result = await sql`
+        UPDATE comentarios_pre 
+        SET ${sql(datos)}, updated_at = NOW()
+        WHERE id_coment = ${id}
+        RETURNING *
+      `
+      return result[0]
     } catch (error) {
-      this.handleError(error, "actualizar comentario")
+      console.error("Error actualizando comentario:", error)
+      throw new Error("Error al actualizar comentario")
     }
   }
 
   static async eliminar(id: string): Promise<void> {
     try {
-      await this.prisma.comentarioPre.delete({
-        where: { id_coment: id },
-      })
+      await sql`DELETE FROM comentarios_pre WHERE id_coment = ${id}`
     } catch (error) {
-      this.handleError(error, "eliminar comentario")
+      console.error("Error eliminando comentario:", error)
+      throw new Error("Error al eliminar comentario")
     }
   }
 }
