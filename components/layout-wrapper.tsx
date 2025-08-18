@@ -15,7 +15,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   return (
     <ProtectedRoute>
       <Sidebar />
-      <div className="pt-16">{children}</div>
+      <div className="pt-16 min-h-screen">{children}</div>
     </ProtectedRoute>
   )
 }
