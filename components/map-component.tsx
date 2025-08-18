@@ -126,51 +126,6 @@ function DrawControl({ onFeatureCreate, isDrawMode }: { onFeatureCreate: any; is
   return null
 }
 
-function FeedbackControl({ isFeedbackMode }: { isFeedbackMode: boolean }) {
-  const map = useMap()
-
-  useEffect(() => {
-    if (!map) return
-
-    if (isFeedbackMode) {
-      map.on("click", (e) => {
-        const popup = L.popup()
-          .setLatLng(e.latlng)
-          .setContent(
-            `
-            <div style="min-width: 200px;">
-              <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">Feedback</h4>
-              <textarea 
-                placeholder="Escribe tu comentario aquí..." 
-                style="width: 100%; height: 60px; margin-bottom: 8px; padding: 4px; border: 1px solid #ccc; border-radius: 4px; resize: none;"
-              ></textarea>
-              <button 
-                onclick="this.closest('.leaflet-popup').remove()" 
-                style="background: #3b82f6; color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;"
-              >
-                Enviar
-              </button>
-            </div>
-          `,
-          )
-          .openOn(map)
-      })
-
-      map.getContainer().style.cursor = "crosshair"
-    } else {
-      map.off("click")
-      map.getContainer().style.cursor = ""
-    }
-
-    return () => {
-      map.off("click")
-      map.getContainer().style.cursor = ""
-    }
-  }, [map, isFeedbackMode])
-
-  return null
-}
-
 function AutoZoom({ features }: { features: MapFeature[] }) {
   const map = useMap()
 
@@ -348,8 +303,8 @@ export default function MapComponent({
 
   return (
     <MapContainer
-      center={[-33.4489, -70.6693]} // Cambiado a coordenadas de Chile como fallback
-      zoom={6} // Zoom inicial más amplio para Chile
+      center={[-33.4489, -70.6693]}
+      zoom={6}
       style={{ height: "600px", width: "100%" }}
       className="rounded-lg"
     >
@@ -363,7 +318,6 @@ export default function MapComponent({
       {features.map(renderFeature)}
 
       <DrawControl onFeatureCreate={onFeatureCreate} isDrawMode={isDrawMode} />
-      <FeedbackControl isFeedbackMode={isFeedbackMode} />
     </MapContainer>
   )
 }

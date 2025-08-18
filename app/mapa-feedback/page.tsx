@@ -170,28 +170,28 @@ const getColorByStatus = (estado?: string, verificada?: boolean) => {
   return "#6b7280" // Gris por defecto
 }
 
-const handleSubmitFeedback = async (
+const handleSubmitFeedbackSimplificado = async (
   selectedFeature: any,
-  comentarioTexto: any,
-  tipoFeedback: any,
-  categoriaFeedback: any,
+  comentarioSeleccionado: any,
   setIsDialogOpen: any,
-  setComentarioTexto: any,
-  setTipoFeedback: any,
-  setCategoriaFeedback: any,
+  setComentarioSeleccionado: any,
   toast: any,
+  comentariosPredefinidos: any,
 ) => {
-  if (!selectedFeature || !comentarioTexto.trim() || !tipoFeedback) {
+  if (!selectedFeature || !comentarioSeleccionado.trim()) {
     toast({
       title: "Error",
-      description: "Por favor completa todos los campos requeridos",
+      description: "Por favor selecciona un comentario predefinido",
       variant: "destructive",
     })
     return
   }
 
   try {
-    console.log("[v0] Enviando feedback a la base de datos...")
+    console.log("[v0] Enviando feedback simplificado a la base de datos...")
+
+    // Encontrar el comentario predefinido seleccionado para obtener tipo y categoría
+    const comentarioPredefinido = comentariosPredefinidos.find((c) => c.comentario === comentarioSeleccionado)
 
     const response = await fetch("/api/comentarios", {
       method: "POST",
@@ -199,29 +199,22 @@ const handleSubmitFeedback = async (
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        comentario: comentarioTexto,
-        tipo_feedback: tipoFeedback,
-        categoria: categoriaFeedback,
+        comentario: comentarioSeleccionado,
+        tipo_feedback: comentarioPredefinido?.tipo_feedback || "informacion",
+        categoria: comentarioPredefinido?.categoria || "otros",
         direccion_id: selectedFeature.properties.address?.id_direccion,
-        creado_por: "usuario-demo", // En producción sería el ID del usuario actual
+        creado_por: "usuario-demo",
       }),
     })
 
     if (response.ok) {
-      const nuevoComentario = await response.json()
-
-      // Actualizar la lista de comentarios
       await fetchExistingComments(selectedFeature.properties.address!.id_direccion, setIsDialogOpen)
-
-      // Limpiar formulario
-      setComentarioTexto("")
-      setTipoFeedback("")
-      setCategoriaFeedback("")
+      setComentarioSeleccionado("")
       setIsDialogOpen(false)
 
       toast({
         title: "Feedback enviado",
-        description: "Tu comentario ha sido guardado en la base de datos.",
+        description: "Tu comentario ha sido guardado exitosamente.",
       })
     } else {
       throw new Error("Error al enviar feedback")
@@ -247,9 +240,7 @@ export default function MapaFeedbackPage() {
   const [loading, setLoading] = useState(true)
   const [selectedFeature, setSelectedFeature] = useState<MapFeature | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [comentarioTexto, setComentarioTexto] = useState("")
-  const [tipoFeedback, setTipoFeedback] = useState("")
-  const [categoriaFeedback, setCategoriaFeedback] = useState("")
+  const [comentarioSeleccionado, setComentarioSeleccionado] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [filterEstado, setFilterEstado] = useState<string>("all")
   const [filterCanal, setFilterCanal] = useState<string>("all")
@@ -484,7 +475,7 @@ export default function MapaFeedbackPage() {
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-3xl mx-auto top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl mx-auto top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999] max-h-[90vh] overflow-y-auto">
           <DialogHeader className="pb-4 border-b">
             <DialogTitle className="flex items-center gap-2 text-xl">
               <MapPin className="h-6 w-6 text-blue-600" />
@@ -516,7 +507,7 @@ export default function MapaFeedbackPage() {
                         <span className="text-sm font-medium">Estado</span>
                       </div>
                       <Badge variant={selectedFeature.properties.address.verificada ? "default" : "secondary"}>
-                        {selectedFeature.properties.address.verificada ? "Verificada" : "Sin verificar"}
+                        {selectedFeature.properties.address.estado_nombre || "Pendiente"}
                       </Badge>
                       {selectedFeature.properties.address.fecha_verificacion && (
                         <p className="text-xs text-gray-500">
@@ -532,7 +523,7 @@ export default function MapaFeedbackPage() {
                       {selectedFeature.properties.address.canal_nombre || "Sin canal"}
                     </Badge>
                     <Badge variant="outline" className="text-xs">
-                      {selectedFeature.properties.address.estado_nombre || "Sin estado"}
+                      {selectedFeature.properties.address.estado_nombre || "Pendiente"}
                     </Badge>
                     <Badge variant="outline" className="text-xs">
                       {selectedFeature.properties.address.tipo_vivienda_nombre || "Sin tipo"}
@@ -565,45 +556,9 @@ export default function MapaFeedbackPage() {
                   Agregar Feedback Rápido
                 </h3>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-semibold">Tipo de Feedback *</Label>
-                    <Select value={tipoFeedback} onValueChange={setTipoFeedback}>
-                      <SelectTrigger className="border-2 border-gray-200 focus:border-blue-500">
-                        <SelectValue placeholder="Selecciona tipo..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {tiposFeedback.map((tipo: any) => (
-                          <SelectItem key={tipo.value} value={tipo.value}>
-                            <div className="flex items-center gap-2">
-                              <Badge className={`text-xs ${tipo.color}`}>{tipo.label}</Badge>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-semibold">Categoría</Label>
-                    <Select value={categoriaFeedback} onValueChange={setCategoriaFeedback}>
-                      <SelectTrigger className="border-2 border-gray-200 focus:border-blue-500">
-                        <SelectValue placeholder="Selecciona categoría..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categoriasFeedback.map((categoria: string) => (
-                          <SelectItem key={categoria} value={categoria}>
-                            {categoria}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold">Comentario Rápido *</Label>
-                  <Select value={comentarioTexto} onValueChange={setComentarioTexto}>
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Comentario Predefinido *</Label>
+                  <Select value={comentarioSeleccionado} onValueChange={setComentarioSeleccionado}>
                     <SelectTrigger className="border-2 border-gray-200 focus:border-blue-500">
                       <SelectValue placeholder="Selecciona un comentario predefinido..." />
                     </SelectTrigger>
@@ -611,33 +566,30 @@ export default function MapaFeedbackPage() {
                       {comentariosPredefinidos.map((comentario: ComentarioPredefinido, index: number) => (
                         <SelectItem key={index} value={comentario.comentario}>
                           <div className="flex flex-col">
-                            <span>{comentario.comentario}</span>
+                            <span className="font-medium">{comentario.comentario}</span>
                             <span className="text-xs text-gray-500">
-                              {comentario.tipo_feedback} - {comentario.categoria}
+                              {comentario.tipo_feedback} • {comentario.categoria}
                             </span>
                           </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-gray-500 mt-1">Selecciona un comentario predefinido para mayor rapidez</p>
+                  <p className="text-xs text-gray-500 mt-1">Selecciona un comentario predefinido para envío rápido</p>
                 </div>
 
                 <Button
                   onClick={() =>
-                    handleSubmitFeedback(
+                    handleSubmitFeedbackSimplificado(
                       selectedFeature,
-                      comentarioTexto,
-                      tipoFeedback,
-                      categoriaFeedback,
+                      comentarioSeleccionado,
                       setIsDialogOpen,
-                      setComentarioTexto,
-                      setTipoFeedback,
-                      setCategoriaFeedback,
+                      setComentarioSeleccionado,
                       toast,
+                      comentariosPredefinidos,
                     )
                   }
-                  disabled={!comentarioTexto.trim() || !tipoFeedback}
+                  disabled={!comentarioSeleccionado.trim()}
                   className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 rounded-lg shadow-lg transition-all duration-200"
                 >
                   <MessageSquare className="mr-2 h-4 w-4" />
