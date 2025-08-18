@@ -1,14 +1,16 @@
-import { BaseService } from "./base.service"
+import { neon } from "@neondatabase/serverless"
+
+const sql = neon(process.env.DATABASE_URL!)
 
 export interface Comuna {
-  id: number
+  id_comuna: number
   nombre: string
   codigo?: string
   region: string
   provincia: string
   activo: boolean
-  createdAt: Date
-  updatedAt: Date
+  created_at: Date
+  updated_at: Date
 }
 
 export interface CreateComunaData {
@@ -21,49 +23,93 @@ export interface CreateComunaData {
 
 export interface UpdateComunaData extends Partial<CreateComunaData> {}
 
-export class ComunaService extends BaseService<Comuna, CreateComunaData, UpdateComunaData> {
-  constructor() {
-    super("comunas")
+export class ComunaService {
+  static async obtenerTodas(): Promise<Comuna[]> {
+    try {
+      return await sql`
+        SELECT * FROM comunas 
+        ORDER BY region, provincia, nombre ASC
+      `
+    } catch (error) {
+      console.error("Error obteniendo comunas:", error)
+      throw new Error("Error al obtener comunas")
+    }
   }
 
-  async findByRegion(region: string): Promise<Comuna[]> {
-    return this.prisma.comunas.findMany({
-      where: { region },
-      orderBy: { nombre: "asc" },
-    })
+  static async obtenerPorId(id: number): Promise<Comuna | null> {
+    try {
+      const result = await sql`
+        SELECT * FROM comunas WHERE id_comuna = ${id}
+      `
+      return result[0] || null
+    } catch (error) {
+      console.error("Error obteniendo comuna:", error)
+      throw new Error("Error al obtener comuna")
+    }
   }
 
-  async findByProvincia(provincia: string): Promise<Comuna[]> {
-    return this.prisma.comunas.findMany({
-      where: { provincia },
-      orderBy: { nombre: "asc" },
-    })
+  static async obtenerPorRegion(region: string): Promise<Comuna[]> {
+    try {
+      return await sql`
+        SELECT * FROM comunas 
+        WHERE region = ${region} AND activo = true
+        ORDER BY nombre ASC
+      `
+    } catch (error) {
+      console.error("Error obteniendo comunas por región:", error)
+      throw new Error("Error al obtener comunas por región")
+    }
   }
 
-  async findByStatus(activo: boolean): Promise<Comuna[]> {
-    return this.prisma.comunas.findMany({
-      where: { activo },
-      orderBy: { nombre: "asc" },
-    })
+  static async obtenerRegiones(): Promise<string[]> {
+    try {
+      const result = await sql`
+        SELECT DISTINCT region FROM comunas 
+        WHERE activo = true
+        ORDER BY region ASC
+      `
+      return result.map((row) => row.region)
+    } catch (error) {
+      console.error("Error obteniendo regiones:", error)
+      throw new Error("Error al obtener regiones")
+    }
   }
 
-  async getRegiones(): Promise<string[]> {
-    const result = await this.prisma.comunas.findMany({
-      select: { region: true },
-      distinct: ["region"],
-      orderBy: { region: "asc" },
-    })
-    return result.map((r) => r.region)
+  static async crear(datos: CreateComunaData): Promise<Comuna> {
+    try {
+      const result = await sql`
+        INSERT INTO comunas (nombre, codigo, region, provincia, activo)
+        VALUES (${datos.nombre}, ${datos.codigo || null}, ${datos.region}, ${datos.provincia}, ${datos.activo ?? true})
+        RETURNING *
+      `
+      return result[0]
+    } catch (error) {
+      console.error("Error creando comuna:", error)
+      throw new Error("Error al crear comuna")
+    }
   }
 
-  async getProvincias(region?: string): Promise<string[]> {
-    const where = region ? { region } : {}
-    const result = await this.prisma.comunas.findMany({
-      select: { provincia: true },
-      where,
-      distinct: ["provincia"],
-      orderBy: { provincia: "asc" },
-    })
-    return result.map((p) => p.provincia)
+  static async actualizar(id: number, datos: UpdateComunaData): Promise<Comuna> {
+    try {
+      const result = await sql`
+        UPDATE comunas 
+        SET ${sql(datos)}, updated_at = NOW()
+        WHERE id_comuna = ${id}
+        RETURNING *
+      `
+      return result[0]
+    } catch (error) {
+      console.error("Error actualizando comuna:", error)
+      throw new Error("Error al actualizar comuna")
+    }
+  }
+
+  static async eliminar(id: number): Promise<void> {
+    try {
+      await sql`DELETE FROM comunas WHERE id_comuna = ${id}`
+    } catch (error) {
+      console.error("Error eliminando comuna:", error)
+      throw new Error("Error al eliminar comuna")
+    }
   }
 }
