@@ -117,18 +117,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    if (password === "password") {
-      const userData = mockUsers.find((u) => u.email === email)
-      if (userData) {
+    try {
+      // Intentar autenticación con API real
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      })
+
+      if (response.ok) {
+        const { user: userData } = await response.json()
         setUser(userData)
         localStorage.setItem("geovision_user", JSON.stringify(userData))
         if (userData.role === "admin") {
           setAdminModeState("admin")
         }
+        console.log("[v0] Login exitoso con base de datos real")
         return true
       }
+
+      // Fallback a usuarios mock si la API falla
+      console.log("[v0] API falló, usando usuarios mock como fallback")
+      if (password === "password") {
+        const userData = mockUsers.find((u) => u.email === email)
+        if (userData) {
+          setUser(userData)
+          localStorage.setItem("geovision_user", JSON.stringify(userData))
+          if (userData.role === "admin") {
+            setAdminModeState("admin")
+          }
+          return true
+        }
+      }
+
+      return false
+    } catch (error) {
+      console.error("[v0] Error en login:", error)
+
+      // Fallback a usuarios mock en caso de error
+      if (password === "password") {
+        const userData = mockUsers.find((u) => u.email === email)
+        if (userData) {
+          setUser(userData)
+          localStorage.setItem("geovision_user", JSON.stringify(userData))
+          if (userData.role === "admin") {
+            setAdminModeState("admin")
+          }
+          return true
+        }
+      }
+
+      return false
     }
-    return false
   }
 
   const logout = () => {
