@@ -45,7 +45,7 @@ export class DireccionService {
         LEFT JOIN canales c ON d.id_canal = c.id_canal
         LEFT JOIN comunas com ON d.id_comuna = com.id_comuna
         LEFT JOIN tipos_vivienda tv ON d.id_tipo_vivienda = tv.id_tipo_vivienda
-        LEFT JOIN estados_direcciones ed ON d.id_estado = ed.id_estado
+        LEFT JOIN estados_direccion ed ON d.id_estado = ed.id_estado
         LEFT JOIN clasificaciones cl ON d.id_clasificacion = cl.id_clasificacion
         ORDER BY d.created_at DESC
         LIMIT ${limite} OFFSET ${offset}
@@ -69,7 +69,7 @@ export class DireccionService {
         LEFT JOIN canales c ON d.id_canal = c.id_canal
         LEFT JOIN comunas com ON d.id_comuna = com.id_comuna
         LEFT JOIN tipos_vivienda tv ON d.id_tipo_vivienda = tv.id_tipo_vivienda
-        LEFT JOIN estados_direcciones ed ON d.id_estado = ed.id_estado
+        LEFT JOIN estados_direccion ed ON d.id_estado = ed.id_estado
         LEFT JOIN clasificaciones cl ON d.id_clasificacion = cl.id_clasificacion
         WHERE d.id_direccion = ${id}
       `
