@@ -1,14 +1,28 @@
 // Database connection and query utilities
 import { neon } from "@neondatabase/serverless"
 
-// Solo para uso en el servidor (API routes)
 function getDatabaseUrl() {
-  const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.NEON_DATABASE_URL
+  // URL específica proporcionada por el usuario
+  const specificUrl =
+    "postgresql://neondb_owner:npg_YSWDm3bHO6Gt@ep-falling-truth-adjz53rq-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+
+  // Fallbacks a variables de entorno
+  const databaseUrl =
+    process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.NEON_DATABASE_URL || specificUrl
 
   if (!databaseUrl) {
-    throw new Error("No se encontró la variable de entorno de la base de datos.")
+    console.log(
+      "[v0] Variables de entorno disponibles:",
+      Object.keys(process.env).filter(
+        (key) => key.includes("DATABASE") || key.includes("POSTGRES") || key.includes("NEON"),
+      ),
+    )
+    throw new Error(
+      "No se encontró la variable de entorno de la base de datos. Verifica que DATABASE_URL esté configurada.",
+    )
   }
 
+  console.log("[v0] Usando conexión a base de datos:", databaseUrl.substring(0, 50) + "...")
   return databaseUrl
 }
 
@@ -17,10 +31,34 @@ export const sql = neon(getDatabaseUrl())
 
 export async function verifyConnection() {
   try {
-    const result = await sql`SELECT 1 as test`
+    console.log("[v0] Verificando conexión a base de datos...")
+    const result = await sql`SELECT 1 as test, current_database() as db_name, version() as db_version`
+    console.log("[v0] Conexión exitosa:", result[0])
     return true
   } catch (error) {
+    console.error("[v0] Error de conexión:", error)
     throw error
+  }
+}
+
+export async function healthCheck() {
+  try {
+    const result = await sql`
+      SELECT 
+        current_database() as database_name,
+        current_user as user_name,
+        version() as version,
+        now() as current_time
+    `
+    return {
+      status: "connected",
+      info: result[0],
+    }
+  } catch (error) {
+    return {
+      status: "error",
+      error: error instanceof Error ? error.message : "Unknown error",
+    }
   }
 }
 

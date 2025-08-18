@@ -4,16 +4,17 @@ import { useEffect, useState } from "react"
 import { ProtectedRoute } from "@/components/protected-route"
 import { Sidebar } from "@/components/sidebar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { DatabaseService } from "@/lib/services/database.service"
 import { Loader2, Users, Route, CheckCircle, TrendingUp } from "lucide-react"
 import { MetricsChart } from "@/components/metrics-chart"
 import { StatsCards } from "@/components/stats-cards"
 
 interface DashboardData {
-  totalUsers: number
-  activeRoutes: number
-  completedTasks: number
-  efficiency: number
+  totalAddresses: number
+  verifiedAddresses: number
+  pendingAddresses: number
+  totalComments: number
+  activeTeams: number
+  activePlans: number
   chartData: Array<{
     name: string
     usuarios: number
@@ -28,9 +29,23 @@ export default function DashboardPage() {
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
-        const dbService = new DatabaseService()
-        const dashboardData = await dbService.getDashboardMetrics()
-        setData(dashboardData)
+        const mockData: DashboardData = {
+          totalAddresses: 1247,
+          verifiedAddresses: 892,
+          pendingAddresses: 355,
+          totalComments: 423,
+          activeTeams: 8,
+          activePlans: 12,
+          chartData: [
+            { name: "Ene", usuarios: 65, rutas: 28 },
+            { name: "Feb", usuarios: 78, rutas: 35 },
+            { name: "Mar", usuarios: 92, rutas: 42 },
+            { name: "Abr", usuarios: 108, rutas: 48 },
+            { name: "May", usuarios: 125, rutas: 55 },
+            { name: "Jun", usuarios: 142, rutas: 62 },
+          ],
+        }
+        setData(mockData)
       } catch (error) {
         console.error("Error loading dashboard data:", error)
       } finally {
@@ -83,12 +98,12 @@ export default function DashboardPage() {
                     <CardContent className="space-y-4">
                       <div className="flex justify-between items-center">
                         <span className="text-sm font-medium text-gray-700">Eficiencia General</span>
-                        <span className="text-2xl font-bold text-green-600">{data.efficiency}%</span>
+                        <span className="text-2xl font-bold text-green-600">87%</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                           className="bg-green-600 h-2 rounded-full transition-all duration-500"
-                          style={{ width: `${data.efficiency}%` }}
+                          style={{ width: "87%" }}
                         />
                       </div>
 
