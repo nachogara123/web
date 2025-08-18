@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { MapPin, MessageSquare, Search, Filter, ChevronUp, ChevronDown, Calendar, User, MapIcon, X } from "lucide-react"
+import { MapPin, MessageSquare, Search, Filter, ChevronUp, ChevronDown, X } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
 // Importación dinámica para evitar problemas de SSR con Leaflet
@@ -153,6 +153,7 @@ const fetchComentariosPredefinidos = async (setComentariosPredefinidos: any) => 
 
     if (result.success) {
       console.log(`[v0] Comentarios predefinidos obtenidos: ${result.data.length}`)
+      console.log("[v0] Datos de comentarios predefinidos:", result.data)
       setComentariosPredefinidos(result.data)
     } else {
       console.error("[v0] Error obteniendo comentarios predefinidos:", result.message)
@@ -190,7 +191,6 @@ const handleSubmitFeedbackSimplificado = async (
   try {
     console.log("[v0] Enviando feedback simplificado a la base de datos...")
 
-    // Encontrar el comentario predefinido seleccionado para obtener tipo y categoría
     const comentarioPredefinido = comentariosPredefinidos.find((c) => c.comentario === comentarioSeleccionado)
 
     const response = await fetch("/api/comentarios", {
@@ -348,6 +348,10 @@ export default function MapaFeedbackPage() {
     fetchComentariosPredefinidos(setComentariosPredefinidos)
   }, [])
 
+  useEffect(() => {
+    console.log("[v0] Estado actual de comentariosPredefinidos:", comentariosPredefinidos)
+  }, [comentariosPredefinidos])
+
   return (
     <div className="pt-16 p-6 space-y-6 relative">
       <div className="flex items-center justify-between">
@@ -364,7 +368,6 @@ export default function MapaFeedbackPage() {
       <div className="fixed top-20 left-6 right-6 z-[1000] pointer-events-none">
         <Card className="shadow-xl border-2 border-blue-200 bg-white/95 backdrop-blur-sm pointer-events-auto">
           {!showFilters ? (
-            // Vista compacta - muestra valores seleccionados
             <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -444,7 +447,6 @@ export default function MapaFeedbackPage() {
               </div>
             </CardContent>
           ) : (
-            // Vista expandida - filtros completos
             <>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -616,107 +618,79 @@ export default function MapaFeedbackPage() {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-2xl mx-auto top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-lg mx-auto top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[10000] max-h-[80vh] overflow-y-auto">
           <DialogHeader className="pb-4 border-b">
-            <DialogTitle className="flex items-center gap-2 text-xl">
-              <MapPin className="h-6 w-6 text-blue-600" />
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <MapPin className="h-5 w-5 text-blue-600" />
               {selectedFeature?.name}
             </DialogTitle>
-            <DialogDescription className="text-base">{selectedFeature?.description}</DialogDescription>
+            <DialogDescription className="text-sm">{selectedFeature?.description}</DialogDescription>
           </DialogHeader>
 
           {selectedFeature && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {selectedFeature.properties.address && (
-                <div className="p-4 bg-gray-50 rounded-lg space-y-3">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <MapIcon className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm font-medium">Ubicación</span>
-                      </div>
-                      <p className="text-sm text-gray-600">Lat: {selectedFeature.properties.address.lat?.toFixed(6)}</p>
-                      <p className="text-sm text-gray-600">Lon: {selectedFeature.properties.address.lon?.toFixed(6)}</p>
-                      <p className="text-sm text-gray-600">
-                        Comuna: {selectedFeature.properties.address.comuna_nombre || "N/A"}
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm font-medium">Estado</span>
-                      </div>
-                      <Badge variant={selectedFeature.properties.address.verificada ? "default" : "secondary"}>
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="font-medium">Estado:</span>
+                      <Badge
+                        variant={selectedFeature.properties.address.verificada ? "default" : "secondary"}
+                        className="ml-2"
+                      >
                         {selectedFeature.properties.address.estado_nombre || "Pendiente"}
                       </Badge>
-                      {selectedFeature.properties.address.fecha_verificacion && (
-                        <p className="text-xs text-gray-500">
-                          Verificada:{" "}
-                          {new Date(selectedFeature.properties.address.fecha_verificacion).toLocaleDateString()}
-                        </p>
-                      )}
                     </div>
+                    <div>
+                      <span className="font-medium">Comuna:</span>
+                      <span className="ml-2">{selectedFeature.properties.address.comuna_nombre || "N/A"}</span>
+                    </div>
+                    {selectedFeature.properties.address.id_cto && (
+                      <div className="col-span-2">
+                        <span className="font-medium">CTO:</span>
+                        <span className="ml-2">{selectedFeature.properties.address.id_cto}</span>
+                      </div>
+                    )}
                   </div>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    <Badge variant="outline" className="text-xs">
-                      {selectedFeature.properties.address.canal_nombre || "Sin canal"}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      {selectedFeature.properties.address.estado_nombre || "Pendiente"}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      {selectedFeature.properties.address.tipo_vivienda_nombre || "Sin tipo"}
-                    </Badge>
-                  </div>
-
-                  {selectedFeature.properties.address.id_cto && (
-                    <p className="text-sm text-gray-600">
-                      <strong>CTO:</strong> {selectedFeature.properties.address.id_cto}
-                    </p>
-                  )}
-
-                  {selectedFeature.properties.address.hub_feeder_zona && (
-                    <p className="text-sm text-gray-600">
-                      <strong>Hub/Feeder/Zona:</strong> {selectedFeature.properties.address.hub_feeder_zona}
-                    </p>
-                  )}
-
-                  {selectedFeature.properties.address.nota && (
-                    <p className="text-sm text-gray-600">
-                      <strong>Nota:</strong> {selectedFeature.properties.address.nota}
-                    </p>
-                  )}
                 </div>
               )}
 
-              <div className="space-y-4 p-6 border-2 border-blue-100 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <MessageSquare className="h-6 w-6 text-blue-600" />
-                  Agregar Feedback Rápido
+              <div className="space-y-3 p-4 border-2 border-blue-100 rounded-lg bg-blue-50">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5 text-blue-600" />
+                  Feedback Rápido
                 </h3>
 
-                <div className="space-y-3">
-                  <Label className="text-sm font-semibold">Comentario Predefinido *</Label>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Selecciona un comentario:</Label>
                   <Select value={comentarioSeleccionado} onValueChange={setComentarioSeleccionado}>
-                    <SelectTrigger className="border-2 border-gray-200 focus:border-blue-500">
+                    <SelectTrigger className="border-2 border-gray-200 focus:border-blue-500 bg-white">
                       <SelectValue placeholder="Selecciona un comentario predefinido..." />
                     </SelectTrigger>
-                    <SelectContent>
-                      {comentariosPredefinidos.map((comentario: ComentarioPredefinido, index: number) => (
-                        <SelectItem key={index} value={comentario.comentario}>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{comentario.comentario}</span>
-                            <span className="text-xs text-gray-500">
-                              {comentario.tipo_feedback} • {comentario.categoria}
-                            </span>
-                          </div>
+                    <SelectContent className="z-[10001] bg-white border shadow-lg">
+                      {comentariosPredefinidos.length === 0 ? (
+                        <SelectItem value="no-comments" disabled>
+                          No hay comentarios predefinidos disponibles
                         </SelectItem>
-                      ))}
+                      ) : (
+                        comentariosPredefinidos.map((comentario: ComentarioPredefinido, index: number) => (
+                          <SelectItem key={`comentario-${index}`} value={comentario.comentario}>
+                            <div className="flex flex-col py-1">
+                              <span className="font-medium text-sm">{comentario.comentario}</span>
+                              <span className="text-xs text-gray-500">
+                                {comentario.tipo_feedback} • {comentario.categoria}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-gray-500 mt-1">Selecciona un comentario predefinido para envío rápido</p>
+                  <p className="text-xs text-gray-500">
+                    {comentariosPredefinidos.length > 0
+                      ? `${comentariosPredefinidos.length} comentarios disponibles`
+                      : "Cargando comentarios predefinidos..."}
+                  </p>
                 </div>
 
                 <Button
@@ -730,48 +704,33 @@ export default function MapaFeedbackPage() {
                       comentariosPredefinidos,
                     )
                   }
-                  disabled={!comentarioSeleccionado.trim()}
-                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 rounded-lg shadow-lg transition-all duration-200"
+                  disabled={!comentarioSeleccionado.trim() || comentariosPredefinidos.length === 0}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-md"
                 >
                   <MessageSquare className="mr-2 h-4 w-4" />
-                  Enviar Feedback a Base de Datos
+                  Enviar Feedback
                 </Button>
               </div>
 
               {comentariosExistentes && comentariosExistentes.length > 0 && (
-                <div className="space-y-3 p-4 border rounded-lg">
-                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
+                <div className="space-y-2 p-3 border rounded-lg bg-gray-50">
+                  <h4 className="text-sm font-semibold text-gray-900">
                     Comentarios Anteriores ({comentariosExistentes.length})
-                  </h3>
-                  <div className="space-y-3 max-h-60 overflow-y-auto">
-                    {comentariosExistentes.map((comentario: ComentarioReal) => (
-                      <div key={comentario.id_coment} className="p-3 bg-white border rounded-lg shadow-sm">
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            {comentario.tipo_feedback && (
-                              <Badge
-                                className={`text-xs ${getFeedbackTypeColor(comentario.tipo_feedback, tiposFeedback)}`}
-                              >
-                                {comentario.tipo_feedback}
-                              </Badge>
-                            )}
-                            {comentario.categoria && (
-                              <Badge variant="outline" className="text-xs">
-                                {comentario.categoria}
-                              </Badge>
-                            )}
-                          </div>
-                          <span className="text-xs text-gray-500">
-                            {new Date(comentario.fecha_comentario || comentario.created_at).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-700 mb-2">{comentario.comentario}</p>
-                        {comentario.usuario_nombre && (
-                          <p className="text-xs text-gray-500">Por: {comentario.usuario_nombre}</p>
-                        )}
+                  </h4>
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {comentariosExistentes.slice(0, 3).map((comentario: ComentarioReal) => (
+                      <div key={comentario.id_coment} className="p-2 bg-white border rounded text-xs">
+                        <p className="text-gray-700">{comentario.comentario}</p>
+                        <p className="text-gray-500 mt-1">
+                          {new Date(comentario.fecha_comentario || comentario.created_at).toLocaleDateString()}
+                        </p>
                       </div>
                     ))}
+                    {comentariosExistentes.length > 3 && (
+                      <p className="text-xs text-gray-500 text-center">
+                        +{comentariosExistentes.length - 3} comentarios más
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
