@@ -104,9 +104,14 @@ export class ComentarioService {
     }>,
   ): Promise<ComentarioPre> {
     try {
+      const setClauses = []
+      if (datos.comentario !== undefined) setClauses.push(`comentario = '${datos.comentario}'`)
+      if (datos.tipo_feedback !== undefined) setClauses.push(`tipo_feedback = '${datos.tipo_feedback}'`)
+      if (datos.categoria !== undefined) setClauses.push(`categoria = '${datos.categoria}'`)
+
       const result = await sql`
         UPDATE comentarios_pre 
-        SET ${sql(datos)}, updated_at = NOW()
+        SET ${sql.unsafe(setClauses.join(", "))}, updated_at = NOW()
         WHERE id_coment = ${id}
         RETURNING *
       `

@@ -38,56 +38,6 @@ interface MapComponentProps {
   isFeedbackMode: boolean
 }
 
-function AutoZoom({ features }: { features: MapFeature[] }) {
-  const map = useMap()
-
-  useEffect(() => {
-    if (!map || features.length === 0) return
-
-    try {
-      const bounds = L.latLngBounds([])
-      let hasValidBounds = false
-
-      features.forEach((feature) => {
-        if (feature.type === "marker" && Array.isArray(feature.coordinates) && feature.coordinates.length === 2) {
-          bounds.extend([feature.coordinates[0], feature.coordinates[1]])
-          hasValidBounds = true
-        } else if (feature.type === "polygon" && Array.isArray(feature.coordinates)) {
-          feature.coordinates.forEach((coord: [number, number]) => {
-            if (Array.isArray(coord) && coord.length === 2) {
-              bounds.extend([coord[0], coord[1]])
-              hasValidBounds = true
-            }
-          })
-        } else if (feature.type === "polyline" && Array.isArray(feature.coordinates)) {
-          feature.coordinates.forEach((coord: [number, number]) => {
-            if (Array.isArray(coord) && coord.length === 2) {
-              bounds.extend([coord[0], coord[1]])
-              hasValidBounds = true
-            }
-          })
-        } else if (feature.type === "circle" && feature.coordinates.center) {
-          bounds.extend([feature.coordinates.center[0], feature.coordinates.center[1]])
-          hasValidBounds = true
-        }
-      })
-
-      if (hasValidBounds && bounds.isValid()) {
-        // Agregar padding para que los markers no estén en el borde
-        map.fitBounds(bounds, {
-          padding: [20, 20],
-          maxZoom: 16, // Evitar zoom excesivo cuando hay pocos puntos
-        })
-        console.log(`[v0] Auto zoom aplicado a ${features.length} features`)
-      }
-    } catch (error) {
-      console.error("[v0] Error aplicando auto zoom:", error)
-    }
-  }, [map, features])
-
-  return null
-}
-
 function DrawControl({ onFeatureCreate, isDrawMode }: { onFeatureCreate: any; isDrawMode: boolean }) {
   const map = useMap()
   const drawControlRef = useRef<L.Control.Draw | null>(null)
@@ -342,8 +292,6 @@ export default function MapComponent({
       />
 
       {features.map(renderFeature)}
-
-      <AutoZoom features={features} />
 
       <DrawControl onFeatureCreate={onFeatureCreate} isDrawMode={isDrawMode} />
       <FeedbackControl isFeedbackMode={isFeedbackMode} />

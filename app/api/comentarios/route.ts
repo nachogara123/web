@@ -1,93 +1,52 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getDatabaseUrl } from "@/lib/database"
-import { neon } from "@neondatabase/serverless"
+import { ComentarioService } from "@/lib/services/comentario.service"
 
 export async function GET(request: NextRequest) {
   try {
+    console.log("[v0] Obteniendo comentarios...")
+
     const { searchParams } = new URL(request.url)
     const direccionId = searchParams.get("direccion_id")
 
-    const sql = neon(getDatabaseUrl())
-
-    let query = `
-      SELECT 
-        cp.id_coment,
-        cp.comentario,
-        cp.tipo_feedback,
-        cp.categoria,
-        cp.prioridad,
-        cp.resuelto,
-        cp.created_at,
-        u.nombre as usuario_nombre
-      FROM comentarios_pre cp
-      LEFT JOIN usuarios u ON cp.creado_por = u.id_user
-    `
-
-    const params: any[] = []
-
+    let comentarios
     if (direccionId) {
-      query += ` WHERE cp.id_coment = $1`
-      params.push(direccionId)
+      comentarios = await ComentarioService.obtenerPorDireccion(Number.parseInt(direccionId))
+    } else {
+      comentarios = await ComentarioService.obtenerTodos()
     }
 
-    query += ` ORDER BY cp.created_at DESC`
-
-    const comentarios = await sql(query, params)
-
-    return NextResponse.json({
-      success: true,
-      data: comentarios,
-    })
+    console.log(`[v0] Encontrados ${comentarios.length} comentarios`)
+    return NextResponse.json(comentarios)
   } catch (error) {
     console.error("[v0] Error obteniendo comentarios:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Error al obtener comentarios",
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Error al obtener comentarios" }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("[v0] Creando nuevo comentario...")
+
     const body = await request.json()
-    const { direccion_id, comentario, tipo_feedback, categoria, usuario_id } = body
+    const { comentario, tipo_feedback, categoria, creado_por, direccion_id } = body
 
-    const sql = neon(getDatabaseUrl())
-
-    const comentarioPre = await sql(
-      `
-      INSERT INTO comentarios_pre (
-        comentario, tipo_feedback, categoria, prioridad, creado_por, created_at, resuelto
-      ) VALUES ($1, $2, $3, $4, $5, NOW(), false)
-      RETURNING id_coment
-    `,
-      [comentario, tipo_feedback, categoria, 1, usuario_id],
-    )
-
-    await sql(
-      `
-      INSERT INTO historias_comentarios (
-        id_direccion, id_usuario, estado, fecha_comentario, id_comentario
-      ) VALUES ($1, $2, 'nuevo', NOW(), $3)
-    `,
-      [direccion_id, usuario_id, comentarioPre[0].id_coment],
-    )
-
-    return NextResponse.json({
-      success: true,
-      message: "Comentario guardado exitosamente",
+    // Crear comentario en comentarios_pre
+    const nuevoComentario = await ComentarioService.crear({
+      comentario,
+      tipo_feedback,
+      categoria,
+      creado_por,
     })
+
+    // Si se especifica una dirección, asignar el comentario a esa dirección
+    if (direccion_id && creado_por) {
+      await ComentarioService.asignarADireccion(nuevoComentario.id_coment, Number.parseInt(direccion_id), creado_por)
+    }
+
+    console.log("[v0] Comentario creado exitosamente")
+    return NextResponse.json(nuevoComentario)
   } catch (error) {
-    console.error("[v0] Error guardando comentario:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Error al guardar comentario",
-      },
-      { status: 500 },
-    )
+    console.error("[v0] Error creando comentario:", error)
+    return NextResponse.json({ error: "Error al crear comentario" }, { status: 500 })
   }
 }

@@ -8,8 +8,9 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { MapPin, MessageSquare, Search, Filter, ChevronUp, ChevronDown } from "lucide-react"
+import { MapPin, MessageSquare, Search, Filter, ChevronUp, ChevronDown, Calendar, User, MapIcon } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
 // Importación dinámica para evitar problemas de SSR con Leaflet
@@ -38,6 +39,19 @@ interface DatabaseAddress {
   clasificacion_nombre?: string
   contador: number
   verificada: boolean
+  fecha_verificacion?: string
+  verificada_por?: string
+  created_at: string
+}
+
+interface ComentarioReal {
+  id_coment: string
+  comentario: string
+  tipo_feedback?: string
+  categoria?: string
+  creado_por?: string
+  usuario_nombre?: string
+  fecha_comentario?: string
   created_at: string
 }
 
@@ -54,24 +68,25 @@ interface MapFeature {
     address?: DatabaseAddress
   }
   createdAt: string
-  feedback?: {
-    id: string
-    comment: string
-    type: "issue" | "suggestion" | "info"
-    createdAt: string
-    user: string
-  }[]
+  feedback?: ComentarioReal[]
 }
 
-const predefinedComments = [
-  { text: "Mucha congestión de tráfico", type: "issue" as const },
-  { text: "Área en buen estado", type: "info" as const },
-  { text: "Necesita mantenimiento", type: "issue" as const },
-  { text: "Excelente ubicación", type: "info" as const },
-  { text: "Mejorar señalización", type: "suggestion" as const },
-  { text: "Zona muy transitada", type: "info" as const },
-  { text: "Problemas de accesibilidad", type: "issue" as const },
-  { text: "Buena conectividad", type: "info" as const },
+const tiposFeedback = [
+  { value: "issue", label: "Problema", color: "bg-red-100 text-red-800" },
+  { value: "suggestion", label: "Sugerencia", color: "bg-blue-100 text-blue-800" },
+  { value: "info", label: "Información", color: "bg-green-100 text-green-800" },
+  { value: "maintenance", label: "Mantenimiento", color: "bg-yellow-100 text-yellow-800" },
+]
+
+const categoriasFeedback = [
+  "Accesibilidad",
+  "Conectividad",
+  "Estado físico",
+  "Señalización",
+  "Tráfico",
+  "Seguridad",
+  "Infraestructura",
+  "Otros",
 ]
 
 export default function MapaFeedbackPage() {
@@ -80,12 +95,14 @@ export default function MapaFeedbackPage() {
   const [loading, setLoading] = useState(true)
   const [selectedFeature, setSelectedFeature] = useState<MapFeature | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [selectedComment, setSelectedComment] = useState("")
+  const [comentarioTexto, setComentarioTexto] = useState("")
+  const [tipoFeedback, setTipoFeedback] = useState("")
+  const [categoriaFeedback, setCategoriaFeedback] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [filterEstado, setFilterEstado] = useState<string>("all")
   const [filterCanal, setFilterCanal] = useState<string>("all")
   const [showFilters, setShowFilters] = useState(true)
-  const [existingComments, setExistingComments] = useState<any[]>([])
+  const [comentariosExistentes, setComentariosExistentes] = useState<ComentarioReal[]>([])
 
   const fetchDirecciones = async () => {
     try {
@@ -120,7 +137,7 @@ export default function MapaFeedbackPage() {
         setFeatures(mapFeatures)
         toast({
           title: "Direcciones cargadas",
-          description: `Se cargaron ${mapFeatures.length} direcciones para feedback.`,
+          description: `Se cargaron ${mapFeatures.length} direcciones para feedback con auto zoom.`,
         })
       } else {
         toast({
@@ -141,15 +158,18 @@ export default function MapaFeedbackPage() {
     }
   }
 
-  const fetchExistingComments = async () => {
+  const fetchExistingComments = async (direccionId: number) => {
     try {
-      const response = await fetch("/api/comentarios")
-      const result = await response.json()
-      if (result.success) {
-        setExistingComments(result.data)
-      }
+      console.log(`[v0] Obteniendo comentarios para dirección ${direccionId}...`)
+      const response = await fetch(`/api/comentarios?direccion_id=${direccionId}`)
+      const comentarios = await response.json()
+
+      console.log(`[v0] Comentarios obtenidos: ${comentarios.length}`)
+      setComentariosExistentes(comentarios)
+      return comentarios
     } catch (error) {
       console.error("[v0] Error obteniendo comentarios:", error)
+      return []
     }
   }
 
@@ -161,79 +181,8 @@ export default function MapaFeedbackPage() {
     return "#6b7280" // Gris por defecto
   }
 
-  const handleSubmitFeedback = async () => {
-    if (!selectedFeature || !selectedComment) return
-
-    const commentData = predefinedComments.find((c) => c.text === selectedComment)
-    if (!commentData) return
-
-    try {
-      const response = await fetch("/api/comentarios", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          direccion_id: selectedFeature.properties.address?.id_direccion,
-          comentario: commentData.text,
-          tipo_feedback: commentData.type,
-          categoria: "feedback_mapa",
-          usuario_id: "00000000-0000-0000-0000-000000000001", // Usuario demo
-        }),
-      })
-
-      const result = await response.json()
-
-      if (result.success) {
-        const newFeedback = {
-          id: Date.now().toString(),
-          comment: commentData.text,
-          type: commentData.type,
-          createdAt: new Date().toISOString().split("T")[0],
-          user: "Usuario Actual",
-        }
-
-        setFeatures(
-          features.map((feature) =>
-            feature.id === selectedFeature.id
-              ? { ...feature, feedback: [...(feature.feedback || []), newFeedback] }
-              : feature,
-          ),
-        )
-
-        if (selectedFeature?.id === selectedFeature.id) {
-          setSelectedFeature({
-            ...selectedFeature,
-            feedback: [...(selectedFeature.feedback || []), newFeedback],
-          })
-        }
-
-        setSelectedComment("")
-        setIsDialogOpen(false)
-        toast({
-          title: "Feedback enviado",
-          description: "Tu comentario ha sido registrado en la base de datos.",
-        })
-      } else {
-        toast({
-          title: "Error",
-          description: result.message || "Error al enviar feedback",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("[v0] Error enviando feedback:", error)
-      toast({
-        title: "Error de conexión",
-        description: "No se pudo enviar el feedback",
-        variant: "destructive",
-      })
-    }
-  }
-
   useEffect(() => {
     fetchDirecciones()
-    fetchExistingComments()
   }, [])
 
   const filteredFeatures = features.filter((feature) => {
@@ -252,24 +201,77 @@ export default function MapaFeedbackPage() {
     return matchesSearch && matchesEstado && matchesCanal
   })
 
-  const handleFeatureSelect = (feature: MapFeature | null) => {
+  const handleFeatureSelect = async (feature: MapFeature | null) => {
     setSelectedFeature(feature)
-    if (feature) {
+    if (feature && feature.properties.address) {
+      const comentarios = await fetchExistingComments(feature.properties.address.id_direccion)
+      setSelectedFeature({
+        ...feature,
+        feedback: comentarios,
+      })
       setIsDialogOpen(true)
     }
   }
 
-  const getFeedbackTypeColor = (type: string) => {
-    switch (type) {
-      case "issue":
-        return "bg-red-100 text-red-800"
-      case "suggestion":
-        return "bg-blue-100 text-blue-800"
-      case "info":
-        return "bg-green-100 text-green-800"
-      default:
-        return "bg-gray-100 text-gray-800"
+  const handleSubmitFeedback = async () => {
+    if (!selectedFeature || !comentarioTexto.trim() || !tipoFeedback) {
+      toast({
+        title: "Error",
+        description: "Por favor completa todos los campos requeridos",
+        variant: "destructive",
+      })
+      return
     }
+
+    try {
+      console.log("[v0] Enviando feedback a la base de datos...")
+
+      const response = await fetch("/api/comentarios", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          comentario: comentarioTexto,
+          tipo_feedback: tipoFeedback,
+          categoria: categoriaFeedback,
+          direccion_id: selectedFeature.properties.address?.id_direccion,
+          creado_por: "usuario-demo", // En producción sería el ID del usuario actual
+        }),
+      })
+
+      if (response.ok) {
+        const nuevoComentario = await response.json()
+
+        // Actualizar la lista de comentarios
+        await fetchExistingComments(selectedFeature.properties.address!.id_direccion)
+
+        // Limpiar formulario
+        setComentarioTexto("")
+        setTipoFeedback("")
+        setCategoriaFeedback("")
+        setIsDialogOpen(false)
+
+        toast({
+          title: "Feedback enviado",
+          description: "Tu comentario ha sido guardado en la base de datos.",
+        })
+      } else {
+        throw new Error("Error al enviar feedback")
+      }
+    } catch (error) {
+      console.error("[v0] Error enviando feedback:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo enviar el feedback. Intenta nuevamente.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const getFeedbackTypeColor = (type: string) => {
+    const tipoEncontrado = tiposFeedback.find((t) => t.value === type)
+    return tipoEncontrado?.color || "bg-gray-100 text-gray-800"
   }
 
   const estadosUnicos = [...new Set(direcciones.map((d) => d.estado_nombre).filter(Boolean))]
@@ -397,7 +399,7 @@ export default function MapaFeedbackPage() {
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-lg mx-auto top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999]">
+        <DialogContent className="sm:max-w-2xl mx-auto top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5 text-blue-600" />
@@ -410,103 +412,159 @@ export default function MapaFeedbackPage() {
             <div className="space-y-4">
               {selectedFeature.properties.address && (
                 <div className="p-4 bg-gray-50 rounded-lg space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Badge variant="secondary" className="text-xs">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <MapIcon className="h-4 w-4 text-gray-500" />
+                        <span className="text-sm font-medium">Ubicación</span>
+                      </div>
+                      <p className="text-sm text-gray-600">Lat: {selectedFeature.properties.address.lat?.toFixed(6)}</p>
+                      <p className="text-sm text-gray-600">Lon: {selectedFeature.properties.address.lon?.toFixed(6)}</p>
+                      <p className="text-sm text-gray-600">
+                        Comuna: {selectedFeature.properties.address.comuna_nombre || "N/A"}
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-gray-500" />
+                        <span className="text-sm font-medium">Estado</span>
+                      </div>
+                      <Badge variant={selectedFeature.properties.address.verificada ? "default" : "secondary"}>
+                        {selectedFeature.properties.address.verificada ? "Verificada" : "Sin verificar"}
+                      </Badge>
+                      {selectedFeature.properties.address.fecha_verificacion && (
+                        <p className="text-xs text-gray-500">
+                          Verificada:{" "}
+                          {new Date(selectedFeature.properties.address.fecha_verificacion).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <Badge variant="outline" className="text-xs">
                       {selectedFeature.properties.address.canal_nombre || "Sin canal"}
                     </Badge>
-                    <Badge variant={selectedFeature.properties.address.verificada ? "default" : "secondary"}>
-                      {selectedFeature.properties.address.verificada ? "Verificada" : "Sin verificar"}
+                    <Badge variant="outline" className="text-xs">
+                      {selectedFeature.properties.address.estado_nombre || "Sin estado"}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      {selectedFeature.properties.address.tipo_vivienda_nombre || "Sin tipo"}
                     </Badge>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="font-medium text-gray-700">Comuna:</span>
-                      <p className="text-gray-600">{selectedFeature.properties.address.comuna_nombre || "N/A"}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700">Estado:</span>
-                      <p className="text-gray-600">{selectedFeature.properties.address.estado_nombre || "N/A"}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700">Tipo Vivienda:</span>
-                      <p className="text-gray-600">
-                        {selectedFeature.properties.address.tipo_vivienda_nombre || "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700">Contador:</span>
-                      <p className="text-gray-600">{selectedFeature.properties.address.contador || "N/A"}</p>
-                    </div>
-                    {selectedFeature.properties.address.id_cto && (
-                      <div>
-                        <span className="font-medium text-gray-700">CTO:</span>
-                        <p className="text-gray-600">{selectedFeature.properties.address.id_cto}</p>
-                      </div>
-                    )}
-                    {selectedFeature.properties.address.hub_feeder_zona && (
-                      <div>
-                        <span className="font-medium text-gray-700">Hub/Feeder:</span>
-                        <p className="text-gray-600">{selectedFeature.properties.address.hub_feeder_zona}</p>
-                      </div>
-                    )}
-                    <div>
-                      <span className="font-medium text-gray-700">Coordenadas:</span>
-                      <p className="text-gray-600 text-xs">
-                        {selectedFeature.properties.address.lat?.toFixed(6)},{" "}
-                        {selectedFeature.properties.address.lon?.toFixed(6)}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700">Creada:</span>
-                      <p className="text-gray-600 text-xs">
-                        {new Date(selectedFeature.properties.address.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
+                  {selectedFeature.properties.address.id_cto && (
+                    <p className="text-sm text-gray-600">
+                      <strong>CTO:</strong> {selectedFeature.properties.address.id_cto}
+                    </p>
+                  )}
+
+                  {selectedFeature.properties.address.hub_feeder_zona && (
+                    <p className="text-sm text-gray-600">
+                      <strong>Hub/Feeder/Zona:</strong> {selectedFeature.properties.address.hub_feeder_zona}
+                    </p>
+                  )}
 
                   {selectedFeature.properties.address.nota && (
-                    <div>
-                      <span className="font-medium text-gray-700">Nota:</span>
-                      <p className="text-gray-600 text-sm">{selectedFeature.properties.address.nota}</p>
-                    </div>
+                    <p className="text-sm text-gray-600">
+                      <strong>Nota:</strong> {selectedFeature.properties.address.nota}
+                    </p>
                   )}
                 </div>
               )}
 
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-gray-900">Agregar Feedback</h3>
-                <Select value={selectedComment} onValueChange={setSelectedComment}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona un comentario..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {predefinedComments.map((comment, index) => (
-                      <SelectItem key={index} value={comment.text}>
-                        <div className="flex items-center justify-between w-full">
-                          <span>{comment.text}</span>
-                          <Badge className={`ml-2 text-xs ${getFeedbackTypeColor(comment.type)}`}>{comment.type}</Badge>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button onClick={handleSubmitFeedback} disabled={!selectedComment} className="w-full">
-                  Enviar Feedback
+              <div className="space-y-4 p-4 border rounded-lg">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5" />
+                  Agregar Feedback
+                </h3>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Tipo de Feedback *</Label>
+                    <Select value={tipoFeedback} onValueChange={setTipoFeedback}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona tipo..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tiposFeedback.map((tipo) => (
+                          <SelectItem key={tipo.value} value={tipo.value}>
+                            <div className="flex items-center gap-2">
+                              <Badge className={`text-xs ${tipo.color}`}>{tipo.label}</Badge>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Categoría</Label>
+                    <Select value={categoriaFeedback} onValueChange={setCategoriaFeedback}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona categoría..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categoriasFeedback.map((categoria) => (
+                          <SelectItem key={categoria} value={categoria}>
+                            {categoria}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Comentario *</Label>
+                  <Textarea
+                    placeholder="Describe tu feedback..."
+                    value={comentarioTexto}
+                    onChange={(e) => setComentarioTexto(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+
+                <Button
+                  onClick={handleSubmitFeedback}
+                  disabled={!comentarioTexto.trim() || !tipoFeedback}
+                  className="w-full"
+                >
+                  Enviar Feedback a Base de Datos
                 </Button>
               </div>
 
-              {selectedFeature.feedback && selectedFeature.feedback.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-gray-900">Comentarios Anteriores</h3>
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
-                    {selectedFeature.feedback.slice(-3).map((fb) => (
-                      <div key={fb.id} className="p-2 bg-gray-50 rounded text-xs">
-                        <div className="flex items-center justify-between mb-1">
-                          <Badge className={`text-xs ${getFeedbackTypeColor(fb.type)}`}>{fb.type}</Badge>
-                          <span className="text-gray-500">{fb.createdAt}</span>
+              {comentariosExistentes && comentariosExistentes.length > 0 && (
+                <div className="space-y-3 p-4 border rounded-lg">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    Comentarios Anteriores ({comentariosExistentes.length})
+                  </h3>
+                  <div className="space-y-3 max-h-60 overflow-y-auto">
+                    {comentariosExistentes.map((comentario) => (
+                      <div key={comentario.id_coment} className="p-3 bg-white border rounded-lg shadow-sm">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            {comentario.tipo_feedback && (
+                              <Badge className={`text-xs ${getFeedbackTypeColor(comentario.tipo_feedback)}`}>
+                                {comentario.tipo_feedback}
+                              </Badge>
+                            )}
+                            {comentario.categoria && (
+                              <Badge variant="outline" className="text-xs">
+                                {comentario.categoria}
+                              </Badge>
+                            )}
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {new Date(comentario.fecha_comentario || comentario.created_at).toLocaleDateString()}
+                          </span>
                         </div>
-                        <p className="text-gray-700">{fb.comment}</p>
+                        <p className="text-sm text-gray-700 mb-2">{comentario.comentario}</p>
+                        {comentario.usuario_nombre && (
+                          <p className="text-xs text-gray-500">Por: {comentario.usuario_nombre}</p>
+                        )}
                       </div>
                     ))}
                   </div>
