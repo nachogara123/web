@@ -396,61 +396,80 @@ export default function MapaFeedbackPage() {
       </div>
 
       <div className="fixed top-20 left-6 right-6 z-[1000] pointer-events-none">
-        <Card className="shadow-xl border-2 border-blue-200 bg-white/95 backdrop-blur-sm pointer-events-auto">
+        <Card className="shadow-lg border border-gray-200 bg-white/98 backdrop-blur-sm pointer-events-auto">
           {!showFilters ? (
-            <CardContent className="p-3">
+            // Vista compacta - siempre visible
+            <CardContent className="p-2">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
                     onClick={() => setShowFilters(true)}
-                    className="text-blue-600 hover:text-blue-700"
+                    className="text-blue-600 hover:text-blue-700 border-blue-200 hover:border-blue-300"
                   >
                     <Filter className="mr-1 h-4 w-4" />
                     Filtros
                     <ChevronDown className="ml-1 h-4 w-4" />
                   </Button>
 
-                  {searchTerm && (
-                    <Badge variant="secondary" className="text-xs">
-                      Búsqueda: {searchTerm}
-                      <X className="ml-1 h-3 w-3 cursor-pointer" onClick={() => setSearchTerm("")} />
-                    </Badge>
-                  )}
+                  {/* Badges de filtros activos */}
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {searchTerm && (
+                      <Badge variant="secondary" className="text-xs px-2 py-1">
+                        🔍 {searchTerm.length > 15 ? `${searchTerm.substring(0, 15)}...` : searchTerm}
+                        <X
+                          className="ml-1 h-3 w-3 cursor-pointer hover:text-red-500"
+                          onClick={() => setSearchTerm("")}
+                        />
+                      </Badge>
+                    )}
 
-                  {filterEstado !== "all" && (
-                    <Badge variant="outline" className="text-xs">
-                      Estado: {filterEstado}
-                      <X className="ml-1 h-3 w-3 cursor-pointer" onClick={() => setFilterEstado("all")} />
-                    </Badge>
-                  )}
+                    {filterEstado !== "all" && (
+                      <Badge variant="outline" className="text-xs px-2 py-1">
+                        📊 {filterEstado}
+                        <X
+                          className="ml-1 h-3 w-3 cursor-pointer hover:text-red-500"
+                          onClick={() => setFilterEstado("all")}
+                        />
+                      </Badge>
+                    )}
 
-                  {filterCanal !== "all" && (
-                    <Badge variant="outline" className="text-xs">
-                      Canal: {filterCanal}
-                      <X className="ml-1 h-3 w-3 cursor-pointer" onClick={() => setFilterCanal("all")} />
-                    </Badge>
-                  )}
+                    {filterCanal !== "all" && (
+                      <Badge variant="outline" className="text-xs px-2 py-1">
+                        📡 {filterCanal}
+                        <X
+                          className="ml-1 h-3 w-3 cursor-pointer hover:text-red-500"
+                          onClick={() => setFilterCanal("all")}
+                        />
+                      </Badge>
+                    )}
 
-                  {filterClasificacion !== "all" && (
-                    <Badge variant="outline" className="text-xs">
-                      Clasificación: {filterClasificacion}
-                      <X className="ml-1 h-3 w-3 cursor-pointer" onClick={() => setFilterClasificacion("all")} />
-                    </Badge>
-                  )}
+                    {filterClasificacion !== "all" && (
+                      <Badge variant="outline" className="text-xs px-2 py-1">
+                        🏷️ {filterClasificacion}
+                        <X
+                          className="ml-1 h-3 w-3 cursor-pointer hover:text-red-500"
+                          onClick={() => setFilterClasificacion("all")}
+                        />
+                      </Badge>
+                    )}
 
-                  {filterComuna !== "all" && (
-                    <Badge variant="outline" className="text-xs">
-                      Comuna: {filterComuna}
-                      <X className="ml-1 h-3 w-3 cursor-pointer" onClick={() => setFilterComuna("all")} />
-                    </Badge>
-                  )}
+                    {filterComuna !== "all" && (
+                      <Badge variant="outline" className="text-xs px-2 py-1">
+                        🏘️ {filterComuna}
+                        <X
+                          className="ml-1 h-3 w-3 cursor-pointer hover:text-red-500"
+                          onClick={() => setFilterComuna("all")}
+                        />
+                      </Badge>
+                    )}
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-600">
-                    {filteredFeatures.length} de {features.length}
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-gray-600 font-medium">
+                    {filteredFeatures.length} / {features.length}
                   </span>
                   {(searchTerm ||
                     filterEstado !== "all" ||
@@ -468,58 +487,64 @@ export default function MapaFeedbackPage() {
                         setFilterComuna("all")
                         setShowSuggestions(false)
                       }}
-                      className="text-xs"
+                      className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
                     >
-                      Limpiar
+                      Limpiar Todo
                     </Button>
                   )}
                 </div>
               </div>
             </CardContent>
           ) : (
+            // Vista expandida - controles completos
             <>
-              <CardHeader className="pb-3">
+              <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg text-gray-900 flex items-center gap-2">
-                    <Filter className="h-5 w-5" />
+                  <CardTitle className="text-base text-gray-900 flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-blue-600" />
                     Filtros Dinámicos
                   </CardTitle>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowFilters(false)}
-                    className="text-blue-600 hover:text-blue-700"
+                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                   >
                     <ChevronUp className="h-4 w-4" />
+                    Colapsar
                   </Button>
                 </div>
-                <CardDescription>Busca y filtra direcciones para feedback</CardDescription>
+                <CardDescription className="text-sm">
+                  Busca y filtra {features.length} direcciones para feedback
+                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                  <div className="space-y-2 relative">
-                    <Label>Buscar con Autocompletado</Label>
+              <CardContent className="pt-0">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+                  {/* Buscador con autocompletado */}
+                  <div className="space-y-1 relative">
+                    <Label className="text-xs font-medium">Buscar con Autocompletado</Label>
                     <div className="relative">
-                      <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
                       <Input
                         placeholder="Dirección, comuna, CTO..."
                         value={searchTerm}
                         onChange={(e) => handleSearchChange(e.target.value)}
                         onFocus={() => searchTerm.length >= 2 && setShowSuggestions(true)}
                         onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                        className="pl-10"
+                        className="pl-8 h-9 text-sm"
                       />
                       {showSuggestions && searchSuggestions.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-40 overflow-y-auto">
+                        <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-32 overflow-y-auto">
                           {searchSuggestions.map((suggestion, index) => (
                             <div
                               key={index}
-                              className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                              className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm border-b border-gray-100 last:border-b-0"
                               onClick={() => {
                                 setSearchTerm(suggestion)
                                 setShowSuggestions(false)
                               }}
                             >
+                              <Search className="inline h-3 w-3 mr-2 text-gray-400" />
                               {suggestion}
                             </div>
                           ))}
@@ -528,10 +553,11 @@ export default function MapaFeedbackPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Estado</Label>
+                  {/* Filtro Estado */}
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium">Estado</Label>
                     <Select value={filterEstado} onValueChange={setFilterEstado}>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-9 text-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -545,10 +571,11 @@ export default function MapaFeedbackPage() {
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Canal</Label>
+                  {/* Filtro Canal */}
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium">Canal</Label>
                     <Select value={filterCanal} onValueChange={setFilterCanal}>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-9 text-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -562,10 +589,11 @@ export default function MapaFeedbackPage() {
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Clasificación</Label>
+                  {/* Filtro Clasificación */}
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium">Clasificación</Label>
                     <Select value={filterClasificacion} onValueChange={setFilterClasificacion}>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-9 text-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -579,10 +607,11 @@ export default function MapaFeedbackPage() {
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Comuna</Label>
+                  {/* Filtro Comuna */}
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium">Comuna</Label>
                     <Select value={filterComuna} onValueChange={setFilterComuna}>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-9 text-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -597,24 +626,37 @@ export default function MapaFeedbackPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 pt-4 border-t flex items-center justify-between">
-                  <p className="text-sm text-gray-600">
-                    Mostrando {filteredFeatures.length} de {features.length} direcciones
+                {/* Resumen y acciones */}
+                <div className="mt-3 pt-3 border-t flex items-center justify-between">
+                  <p className="text-xs text-gray-600">
+                    <span className="font-medium">{filteredFeatures.length}</span> de{" "}
+                    <span className="font-medium">{features.length}</span> direcciones mostradas
                   </p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setSearchTerm("")
-                      setFilterEstado("all")
-                      setFilterCanal("all")
-                      setFilterClasificacion("all")
-                      setFilterComuna("all")
-                      setShowSuggestions(false)
-                    }}
-                  >
-                    Limpiar Filtros
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSearchTerm("")
+                        setFilterEstado("all")
+                        setFilterCanal("all")
+                        setFilterClasificacion("all")
+                        setFilterComuna("all")
+                        setShowSuggestions(false)
+                      }}
+                      className="text-xs"
+                    >
+                      Limpiar Filtros
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowFilters(false)}
+                      className="text-xs text-blue-600"
+                    >
+                      Colapsar
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </>
@@ -622,7 +664,7 @@ export default function MapaFeedbackPage() {
         </Card>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-20">
         <Card className="shadow-xl border-2 border-gray-100">
           <CardContent className="p-0">
             {loading ? (
