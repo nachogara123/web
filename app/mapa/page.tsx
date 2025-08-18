@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { MapPin, Search, Filter } from "lucide-react"
+import { MapPin, Search, Filter, ChevronUp, ChevronDown } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
 
@@ -64,6 +64,7 @@ export default function MapaPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [filterEstado, setFilterEstado] = useState<string>("all")
   const [filterCanal, setFilterCanal] = useState<string>("all")
+  const [showFilters, setShowFilters] = useState(true)
   const [stats, setStats] = useState({
     total: 0,
     verificadas: 0,
@@ -183,12 +184,96 @@ export default function MapaPage() {
         </div>
 
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
+            <Filter className="mr-2 h-4 w-4" />
+            {showFilters ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />}
+            {showFilters ? "Ocultar Filtros" : "Mostrar Filtros"}
+          </Button>
           <Button variant="outline" onClick={() => fetchDirecciones()} disabled={loading}>
             <MapPin className="mr-2 h-4 w-4" />
             {loading ? "Cargando..." : "Actualizar"}
           </Button>
         </div>
       </div>
+
+      {showFilters && (
+        <Card className="shadow-md">
+          <CardHeader>
+            <CardTitle className="text-lg text-gray-900 flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Filtros Dinámicos
+            </CardTitle>
+            <CardDescription>Busca y filtra direcciones en tiempo real</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Buscar</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Dirección, comuna, CTO..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Estado</Label>
+                <Select value={filterEstado} onValueChange={setFilterEstado}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los estados</SelectItem>
+                    {estadosUnicos.map((estado) => (
+                      <SelectItem key={estado} value={estado}>
+                        {estado}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Canal</Label>
+                <Select value={filterCanal} onValueChange={setFilterCanal}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los canales</SelectItem>
+                    {canalesUnicos.map((canal) => (
+                      <SelectItem key={canal} value={canal}>
+                        {canal}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t flex items-center justify-between">
+              <p className="text-sm text-gray-600">
+                Mostrando {filteredDirecciones.length} de {direcciones.length} direcciones
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSearchTerm("")
+                  setFilterEstado("all")
+                  setFilterCanal("all")
+                }}
+              >
+                Limpiar Filtros
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
@@ -255,7 +340,11 @@ export default function MapaPage() {
                 ) : (
                   <MapComponent
                     features={features}
-                    selectedFeature={selectedAddress ? `address-${selectedAddress.id_direccion}` : null}
+                    selectedFeature={
+                      selectedAddress
+                        ? features.find((f) => f.properties?.address?.id_direccion === selectedAddress.id_direccion)
+                        : null
+                    }
                     onFeatureSelect={(feature) => {
                       if (feature?.properties?.address) {
                         handleAddressSelect(feature.properties.address)
@@ -272,66 +361,68 @@ export default function MapaPage() {
         </div>
 
         <div className="space-y-6">
-          <Card className="shadow-md">
-            <CardHeader>
-              <CardTitle className="text-lg text-gray-900">Filtros</CardTitle>
-              <CardDescription>Busca y filtra direcciones</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Buscar</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Dirección, comuna, CTO..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
+          {!showFilters && (
+            <Card className="shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg text-gray-900">Filtros</CardTitle>
+                <CardDescription>Busca y filtra direcciones</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Buscar</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Dirección, comuna, CTO..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label>Estado</Label>
-                <Select value={filterEstado} onValueChange={setFilterEstado}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los estados</SelectItem>
-                    {estadosUnicos.map((estado) => (
-                      <SelectItem key={estado} value={estado}>
-                        {estado}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                <div className="space-y-2">
+                  <Label>Estado</Label>
+                  <Select value={filterEstado} onValueChange={setFilterEstado}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los estados</SelectItem>
+                      {estadosUnicos.map((estado) => (
+                        <SelectItem key={estado} value={estado}>
+                          {estado}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="space-y-2">
-                <Label>Canal</Label>
-                <Select value={filterCanal} onValueChange={setFilterCanal}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los canales</SelectItem>
-                    {canalesUnicos.map((canal) => (
-                      <SelectItem key={canal} value={canal}>
-                        {canal}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                <div className="space-y-2">
+                  <Label>Canal</Label>
+                  <Select value={filterCanal} onValueChange={setFilterCanal}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los canales</SelectItem>
+                      {canalesUnicos.map((canal) => (
+                        <SelectItem key={canal} value={canal}>
+                          {canal}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="pt-2 border-t">
-                <p className="text-sm text-gray-600">
-                  Mostrando {filteredDirecciones.length} de {direcciones.length} direcciones
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+                <div className="pt-2 border-t">
+                  <p className="text-sm text-gray-600">
+                    Mostrando {filteredDirecciones.length} de {direcciones.length} direcciones
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {selectedAddress && (
             <Card className="shadow-md">
