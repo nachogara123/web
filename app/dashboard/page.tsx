@@ -29,6 +29,18 @@ export default function DashboardPage() {
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
+        console.log("[v0] Cargando datos del dashboard desde API...")
+        const response = await fetch("/api/dashboard/stats")
+
+        if (response.ok) {
+          const apiData = await response.json()
+          console.log("[v0] Datos obtenidos de la API:", apiData)
+          setData(apiData)
+        } else {
+          throw new Error("Error en la API")
+        }
+      } catch (error) {
+        console.error("[v0] Error loading dashboard data, usando datos mock:", error)
         const mockData: DashboardData = {
           totalAddresses: 1247,
           verifiedAddresses: 892,
@@ -46,8 +58,6 @@ export default function DashboardPage() {
           ],
         }
         setData(mockData)
-      } catch (error) {
-        console.error("Error loading dashboard data:", error)
       } finally {
         setIsLoading(false)
       }
