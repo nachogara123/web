@@ -1,8 +1,9 @@
-import { UsuarioService, type UsuarioConRol } from "./services/usuario.service"
+import { UsuarioService, type Usuario } from "./services/usuario.service"
+import { RolService, type Rol } from "./services/rol.service"
+import { DatabaseService } from "./database"
 import { EquipoService, type EquipoConSupervisor } from "./services/equipo.service"
 import { DireccionService, type DireccionCompleta } from "./services/direccion.service"
 import type { CommentData } from "./services/comment.service"
-import { DatabaseService } from "./services/database.service" // Import DatabaseService
 
 export interface User {
   id: string
@@ -105,15 +106,16 @@ export interface DashboardMetrics {
 }
 
 // Helper functions to convert database models to API models
-function mapUsuarioToUser(usuario: UsuarioConRol): User {
+function mapUsuarioToUser(usuario: Usuario): User {
   return {
     id: usuario.id_user,
     name: usuario.nombre,
     email: usuario.email,
     role: usuario.rol_id,
-    roleName: usuario.rol.nombre,
-    status: "active", // Por defecto activo, se puede agregar campo en BD
+    roleName: usuario.rol?.nombre,
+    status: usuario.activo ? "active" : "inactive",
     createdAt: usuario.created_at.toISOString(),
+    lastAccess: usuario.ultimo_acceso?.toISOString(),
   }
 }
 
@@ -179,8 +181,19 @@ export const api = {
 
   getUserByEmail: async (email: string): Promise<User | null> => {
     try {
-      const usuario = await UsuarioService.obtenerPorEmail(email)
-      return usuario ? mapUsuarioToUser(usuario) : null
+      const dbUser = await DatabaseService.getUserByEmail(email)
+      if (!dbUser) return null
+
+      return {
+        id: dbUser.id_user,
+        name: dbUser.nombre,
+        email: dbUser.email,
+        role: dbUser.rol_id,
+        roleName: dbUser.rol_nombre,
+        status: dbUser.activo ? "active" : "inactive",
+        createdAt: dbUser.created_at.toISOString(),
+        lastAccess: dbUser.ultimo_acceso?.toISOString(),
+      }
     } catch (error) {
       console.error("Error obteniendo usuario por email:", error)
       throw new Error("Falló al obtener usuario")
@@ -202,6 +215,7 @@ export const api = {
     email: string
     clave: string
     rol_id: string
+    telefono?: string
   }): Promise<User> => {
     try {
       const usuario = await UsuarioService.crear(userData)
@@ -217,7 +231,7 @@ export const api = {
     userData: Partial<{
       nombre: string
       email: string
-      clave: string
+      telefono: string
       rol_id: string
     }>,
   ): Promise<User> => {
@@ -236,6 +250,29 @@ export const api = {
     } catch (error) {
       console.error("Error eliminando usuario:", error)
       throw new Error("Falló al eliminar usuario")
+    }
+  },
+
+  // Roles API
+  getAllRoles: async (): Promise<Rol[]> => {
+    try {
+      return await RolService.obtenerTodos()
+    } catch (error) {
+      console.error("Error obteniendo roles:", error)
+      throw new Error("Falló al obtener roles")
+    }
+  },
+
+  createRole: async (roleData: {
+    nombre: string
+    descripcion?: string
+    permisos?: any
+  }): Promise<Rol> => {
+    try {
+      return await RolService.crear(roleData)
+    } catch (error) {
+      console.error("Error creando rol:", error)
+      throw new Error("Falló al crear rol")
     }
   },
 
@@ -389,50 +426,49 @@ export const api = {
   // Dashboard metrics
   getDashboardMetrics: async (userId: string): Promise<DashboardMetrics> => {
     try {
-      const estadisticasDirecciones = await DireccionService.obtenerEstadisticas()
-      const equipos = await EquipoService.obtenerTodos()
+      const stats = await DatabaseService.getDashboardStats(userId)
 
       // Datos simulados para el gráfico basados en estadísticas reales
       const chartData = [
         {
           name: "Ene",
-          direcciones: Math.floor(estadisticasDirecciones.total * 0.15),
-          comentarios: Math.floor(estadisticasDirecciones.total * 0.12),
+          direcciones: Math.floor(stats.total_addresses * 0.15),
+          comentarios: Math.floor(stats.total_comments * 0.12),
         },
         {
           name: "Feb",
-          direcciones: Math.floor(estadisticasDirecciones.total * 0.18),
-          comentarios: Math.floor(estadisticasDirecciones.total * 0.15),
+          direcciones: Math.floor(stats.total_addresses * 0.18),
+          comentarios: Math.floor(stats.total_comments * 0.15),
         },
         {
           name: "Mar",
-          direcciones: Math.floor(estadisticasDirecciones.total * 0.22),
-          comentarios: Math.floor(estadisticasDirecciones.total * 0.18),
+          direcciones: Math.floor(stats.total_addresses * 0.22),
+          comentarios: Math.floor(stats.total_comments * 0.18),
         },
         {
           name: "Abr",
-          direcciones: Math.floor(estadisticasDirecciones.total * 0.16),
-          comentarios: Math.floor(estadisticasDirecciones.total * 0.2),
+          direcciones: Math.floor(stats.total_addresses * 0.16),
+          comentarios: Math.floor(stats.total_comments * 0.2),
         },
         {
           name: "May",
-          direcciones: Math.floor(estadisticasDirecciones.total * 0.14),
-          comentarios: Math.floor(estadisticasDirecciones.total * 0.17),
+          direcciones: Math.floor(stats.total_addresses * 0.14),
+          comentarios: Math.floor(stats.total_comments * 0.17),
         },
         {
           name: "Jun",
-          direcciones: Math.floor(estadisticasDirecciones.total * 0.15),
-          comentarios: Math.floor(estadisticasDirecciones.total * 0.18),
+          direcciones: Math.floor(stats.total_addresses * 0.15),
+          comentarios: Math.floor(stats.total_comments * 0.18),
         },
       ]
 
       return {
-        totalAddresses: estadisticasDirecciones.total,
-        verifiedAddresses: Math.floor(estadisticasDirecciones.total * 0.7), // 70% verificadas
-        pendingAddresses: Math.floor(estadisticasDirecciones.total * 0.3), // 30% pendientes
-        totalComments: Math.floor(estadisticasDirecciones.total * 0.4), // Estimación
-        activeTeams: equipos.length,
-        activePlans: Math.floor(equipos.length * 1.5), // Estimación
+        totalAddresses: stats.total_addresses,
+        verifiedAddresses: stats.verified_addresses,
+        pendingAddresses: stats.pending_addresses,
+        totalComments: stats.total_comments,
+        activeTeams: stats.active_teams,
+        activePlans: stats.active_plans,
         chartData,
       }
     } catch (error) {
