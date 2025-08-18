@@ -85,6 +85,7 @@ export default function MapaFeedbackPage() {
   const [filterEstado, setFilterEstado] = useState<string>("all")
   const [filterCanal, setFilterCanal] = useState<string>("all")
   const [showFilters, setShowFilters] = useState(true)
+  const [existingComments, setExistingComments] = useState<any[]>([])
 
   const fetchDirecciones = async () => {
     try {
@@ -113,7 +114,7 @@ export default function MapaFeedbackPage() {
               address: dir,
             },
             createdAt: dir.created_at,
-            feedback: [], // Inicialmente sin feedback
+            feedback: [],
           }))
 
         setFeatures(mapFeatures)
@@ -140,6 +141,18 @@ export default function MapaFeedbackPage() {
     }
   }
 
+  const fetchExistingComments = async () => {
+    try {
+      const response = await fetch("/api/comentarios")
+      const result = await response.json()
+      if (result.success) {
+        setExistingComments(result.data)
+      }
+    } catch (error) {
+      console.error("[v0] Error obteniendo comentarios:", error)
+    }
+  }
+
   const getColorByStatus = (estado?: string, verificada?: boolean) => {
     if (verificada) return "#10b981" // Verde para verificadas
     if (estado?.toLowerCase().includes("pendiente")) return "#f59e0b" // Amarillo para pendientes
@@ -148,8 +161,79 @@ export default function MapaFeedbackPage() {
     return "#6b7280" // Gris por defecto
   }
 
+  const handleSubmitFeedback = async () => {
+    if (!selectedFeature || !selectedComment) return
+
+    const commentData = predefinedComments.find((c) => c.text === selectedComment)
+    if (!commentData) return
+
+    try {
+      const response = await fetch("/api/comentarios", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          direccion_id: selectedFeature.properties.address?.id_direccion,
+          comentario: commentData.text,
+          tipo_feedback: commentData.type,
+          categoria: "feedback_mapa",
+          usuario_id: "00000000-0000-0000-0000-000000000001", // Usuario demo
+        }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        const newFeedback = {
+          id: Date.now().toString(),
+          comment: commentData.text,
+          type: commentData.type,
+          createdAt: new Date().toISOString().split("T")[0],
+          user: "Usuario Actual",
+        }
+
+        setFeatures(
+          features.map((feature) =>
+            feature.id === selectedFeature.id
+              ? { ...feature, feedback: [...(feature.feedback || []), newFeedback] }
+              : feature,
+          ),
+        )
+
+        if (selectedFeature?.id === selectedFeature.id) {
+          setSelectedFeature({
+            ...selectedFeature,
+            feedback: [...(selectedFeature.feedback || []), newFeedback],
+          })
+        }
+
+        setSelectedComment("")
+        setIsDialogOpen(false)
+        toast({
+          title: "Feedback enviado",
+          description: "Tu comentario ha sido registrado en la base de datos.",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: result.message || "Error al enviar feedback",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("[v0] Error enviando feedback:", error)
+      toast({
+        title: "Error de conexión",
+        description: "No se pudo enviar el feedback",
+        variant: "destructive",
+      })
+    }
+  }
+
   useEffect(() => {
     fetchDirecciones()
+    fetchExistingComments()
   }, [])
 
   const filteredFeatures = features.filter((feature) => {
@@ -173,43 +257,6 @@ export default function MapaFeedbackPage() {
     if (feature) {
       setIsDialogOpen(true)
     }
-  }
-
-  const handleSubmitFeedback = () => {
-    if (!selectedFeature || !selectedComment) return
-
-    const commentData = predefinedComments.find((c) => c.text === selectedComment)
-    if (!commentData) return
-
-    const newFeedback = {
-      id: Date.now().toString(),
-      comment: commentData.text,
-      type: commentData.type,
-      createdAt: new Date().toISOString().split("T")[0],
-      user: "Usuario Actual",
-    }
-
-    setFeatures(
-      features.map((feature) =>
-        feature.id === selectedFeature.id
-          ? { ...feature, feedback: [...(feature.feedback || []), newFeedback] }
-          : feature,
-      ),
-    )
-
-    if (selectedFeature?.id === selectedFeature.id) {
-      setSelectedFeature({
-        ...selectedFeature,
-        feedback: [...(selectedFeature.feedback || []), newFeedback],
-      })
-    }
-
-    setSelectedComment("")
-    setIsDialogOpen(false)
-    toast({
-      title: "Feedback enviado",
-      description: "Tu comentario ha sido registrado exitosamente.",
-    })
   }
 
   const getFeedbackTypeColor = (type: string) => {
@@ -350,7 +397,7 @@ export default function MapaFeedbackPage() {
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-md mx-auto top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999]">
+        <DialogContent className="sm:max-w-lg mx-auto top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5 text-blue-600" />
@@ -362,26 +409,68 @@ export default function MapaFeedbackPage() {
           {selectedFeature && (
             <div className="space-y-4">
               {selectedFeature.properties.address && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Badge variant="secondary" className="text-xs">
-                        {selectedFeature.properties.address.canal_nombre || "Sin canal"}
-                      </Badge>
-                      <Badge variant={selectedFeature.properties.address.verificada ? "default" : "secondary"}>
-                        {selectedFeature.properties.address.verificada ? "Verificada" : "Sin verificar"}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-gray-600">
-                      Comuna: {selectedFeature.properties.address.comuna_nombre || "N/A"}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      Estado: {selectedFeature.properties.address.estado_nombre || "N/A"}
-                    </p>
-                    {selectedFeature.properties.address.id_cto && (
-                      <p className="text-sm text-gray-600">CTO: {selectedFeature.properties.address.id_cto}</p>
-                    )}
+                <div className="p-4 bg-gray-50 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Badge variant="secondary" className="text-xs">
+                      {selectedFeature.properties.address.canal_nombre || "Sin canal"}
+                    </Badge>
+                    <Badge variant={selectedFeature.properties.address.verificada ? "default" : "secondary"}>
+                      {selectedFeature.properties.address.verificada ? "Verificada" : "Sin verificar"}
+                    </Badge>
                   </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="font-medium text-gray-700">Comuna:</span>
+                      <p className="text-gray-600">{selectedFeature.properties.address.comuna_nombre || "N/A"}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Estado:</span>
+                      <p className="text-gray-600">{selectedFeature.properties.address.estado_nombre || "N/A"}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Tipo Vivienda:</span>
+                      <p className="text-gray-600">
+                        {selectedFeature.properties.address.tipo_vivienda_nombre || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Contador:</span>
+                      <p className="text-gray-600">{selectedFeature.properties.address.contador || "N/A"}</p>
+                    </div>
+                    {selectedFeature.properties.address.id_cto && (
+                      <div>
+                        <span className="font-medium text-gray-700">CTO:</span>
+                        <p className="text-gray-600">{selectedFeature.properties.address.id_cto}</p>
+                      </div>
+                    )}
+                    {selectedFeature.properties.address.hub_feeder_zona && (
+                      <div>
+                        <span className="font-medium text-gray-700">Hub/Feeder:</span>
+                        <p className="text-gray-600">{selectedFeature.properties.address.hub_feeder_zona}</p>
+                      </div>
+                    )}
+                    <div>
+                      <span className="font-medium text-gray-700">Coordenadas:</span>
+                      <p className="text-gray-600 text-xs">
+                        {selectedFeature.properties.address.lat?.toFixed(6)},{" "}
+                        {selectedFeature.properties.address.lon?.toFixed(6)}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Creada:</span>
+                      <p className="text-gray-600 text-xs">
+                        {new Date(selectedFeature.properties.address.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  {selectedFeature.properties.address.nota && (
+                    <div>
+                      <span className="font-medium text-gray-700">Nota:</span>
+                      <p className="text-gray-600 text-sm">{selectedFeature.properties.address.nota}</p>
+                    </div>
+                  )}
                 </div>
               )}
 
