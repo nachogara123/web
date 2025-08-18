@@ -1,39 +1,26 @@
 // Database connection and query utilities
 import { neon } from "@neondatabase/serverless"
 
-console.log("[v0] Verificando variables de entorno:")
-console.log("[v0] DATABASE_URL:", process.env.DATABASE_URL ? "✓ Disponible" : "✗ No encontrada")
-console.log("[v0] POSTGRES_URL:", process.env.POSTGRES_URL ? "✓ Disponible" : "✗ No encontrada")
-console.log("[v0] NEON_DATABASE_URL:", process.env.NEON_DATABASE_URL ? "✓ Disponible" : "✗ No encontrada")
+// Solo para uso en el servidor (API routes)
+function getDatabaseUrl() {
+  const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.NEON_DATABASE_URL
 
-const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.NEON_DATABASE_URL
+  if (!databaseUrl) {
+    throw new Error("No se encontró la variable de entorno de la base de datos.")
+  }
 
-if (!databaseUrl) {
-  console.error("[v0] Error: No se encontró ninguna variable de entorno de base de datos")
-  console.error(
-    "[v0] Variables disponibles:",
-    Object.keys(process.env).filter(
-      (key) => key.includes("DATABASE") || key.includes("POSTGRES") || key.includes("NEON"),
-    ),
-  )
-  throw new Error(
-    "No se encontró la variable de entorno de la base de datos. Verifica que DATABASE_URL esté configurada.",
-  )
+  return databaseUrl
 }
 
-console.log("[v0] Usando URL de base de datos:", databaseUrl.substring(0, 20) + "...")
-
-// Crear conexión SQL usando Neon
-export const sql = neon(databaseUrl)
+// Crear conexión SQL usando Neon (solo servidor)
+export const sql = neon(getDatabaseUrl())
 
 export async function verifyConnection() {
   try {
     const result = await sql`SELECT 1 as test`
-    console.log("[v0] Conexión a base de datos exitosa")
     return true
   } catch (error) {
-    console.error("[v0] Error de conexión a base de datos:", error)
-    return false
+    throw error
   }
 }
 
@@ -124,10 +111,8 @@ export interface DatabaseNotification {
 export class DatabaseService {
   static async query(text: string, params?: any[]) {
     try {
-      // Con Neon serverless, podemos usar directamente la función sql
       return await sql(text, params || [])
     } catch (error) {
-      console.error("[v0] Error en consulta SQL:", error)
       throw error
     }
   }
