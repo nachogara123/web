@@ -173,7 +173,7 @@ export class DireccionService {
       const porEstado = await sql`
         SELECT ed.nombre as estado, COUNT(*) as cantidad
         FROM direcciones d
-        JOIN estados_direccion ed ON d.id_estado = ed.id_estado
+        JOIN estados_direcciones ed ON d.id_estado = ed.id_estado
         GROUP BY ed.nombre, ed.id_estado
         ORDER BY cantidad DESC
       `
