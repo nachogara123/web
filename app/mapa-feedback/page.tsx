@@ -249,6 +249,8 @@ export default function MapaFeedbackPage() {
   const [filterClasificacion, setFilterClasificacion] = useState<string>("all")
   const [filterComuna, setFilterComuna] = useState<string>("all")
   const [comentariosPredefinidos, setComentariosPredefinidos] = useState<ComentarioPredefinido[]>([])
+  const [searchSuggestions, setSearchSuggestions] = useState<string[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
 
   const estadosUnicos = [...new Set(direcciones.map((d: DatabaseAddress) => d.estado_nombre).filter(Boolean))]
   const canalesUnicos = [...new Set(direcciones.map((d: DatabaseAddress) => d.canal_nombre).filter(Boolean))]
@@ -311,13 +313,43 @@ export default function MapaFeedbackPage() {
     }
   }
 
+  const generateSearchSuggestions = (term: string) => {
+    if (term.length < 2) {
+      setSearchSuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+
+    const suggestions = new Set<string>()
+
+    direcciones.forEach((dir) => {
+      if (dir.direccion_final.toLowerCase().includes(term.toLowerCase())) {
+        suggestions.add(dir.direccion_final)
+      }
+      if (dir.comuna_nombre?.toLowerCase().includes(term.toLowerCase())) {
+        suggestions.add(dir.comuna_nombre)
+      }
+      if (dir.id_cto?.toLowerCase().includes(term.toLowerCase())) {
+        suggestions.add(dir.id_cto)
+      }
+    })
+
+    setSearchSuggestions(Array.from(suggestions).slice(0, 5))
+    setShowSuggestions(true)
+  }
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value)
+    generateSearchSuggestions(value)
+  }
+
   useEffect(() => {
     fetchDirecciones(setLoading, setDirecciones, setFeatures, toast)
     fetchComentariosPredefinidos(setComentariosPredefinidos)
   }, [])
 
   return (
-    <div className="pt-16 p-6 space-y-6">
+    <div className="pt-16 p-6 space-y-6 relative">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900">Mapa Feedback</h1>
@@ -337,142 +369,165 @@ export default function MapaFeedbackPage() {
       </div>
 
       {showFilters && (
-        <Card className="shadow-md">
-          <CardHeader>
-            <CardTitle className="text-lg text-gray-900 flex items-center gap-2">
-              <Filter className="h-5 w-5" />
-              Filtros Dinámicos
-            </CardTitle>
-            <CardDescription>Busca y filtra direcciones para feedback</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              <div className="space-y-2">
-                <Label>Buscar</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Dirección, comuna, CTO..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
+        <div className="fixed top-20 left-6 right-6 z-[1000] pointer-events-none">
+          <Card className="shadow-xl border-2 border-blue-200 bg-white/95 backdrop-blur-sm pointer-events-auto">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg text-gray-900 flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                Filtros Dinámicos Superpuestos
+              </CardTitle>
+              <CardDescription>Busca y filtra direcciones para feedback</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="space-y-2 relative">
+                  <Label>Buscar con Autocompletado</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Dirección, comuna, CTO..."
+                      value={searchTerm}
+                      onChange={(e) => handleSearchChange(e.target.value)}
+                      onFocus={() => searchTerm.length >= 2 && setShowSuggestions(true)}
+                      onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                      className="pl-10"
+                    />
+                    {showSuggestions && searchSuggestions.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-40 overflow-y-auto">
+                        {searchSuggestions.map((suggestion, index) => (
+                          <div
+                            key={index}
+                            className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                            onClick={() => {
+                              setSearchTerm(suggestion)
+                              setShowSuggestions(false)
+                            }}
+                          >
+                            {suggestion}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Estado</Label>
+                  <Select value={filterEstado} onValueChange={setFilterEstado}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los estados</SelectItem>
+                      {estadosUnicos.map((estado: string) => (
+                        <SelectItem key={estado} value={estado}>
+                          {estado}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Canal</Label>
+                  <Select value={filterCanal} onValueChange={setFilterCanal}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los canales</SelectItem>
+                      {canalesUnicos.map((canal: string) => (
+                        <SelectItem key={canal} value={canal}>
+                          {canal}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Clasificación</Label>
+                  <Select value={filterClasificacion} onValueChange={setFilterClasificacion}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas las clasificaciones</SelectItem>
+                      {clasificacionesUnicas.map((clasificacion: string) => (
+                        <SelectItem key={clasificacion} value={clasificacion}>
+                          {clasificacion}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Comuna</Label>
+                  <Select value={filterComuna} onValueChange={setFilterComuna}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas las comunas</SelectItem>
+                      {comunasUnicas.map((comuna: string) => (
+                        <SelectItem key={comuna} value={comuna}>
+                          {comuna}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Estado</Label>
-                <Select value={filterEstado} onValueChange={setFilterEstado}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los estados</SelectItem>
-                    {estadosUnicos.map((estado: string) => (
-                      <SelectItem key={estado} value={estado}>
-                        {estado}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="mt-4 pt-4 border-t flex items-center justify-between">
+                <p className="text-sm text-gray-600">
+                  Mostrando {filteredFeatures.length} de {features.length} direcciones
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSearchTerm("")
+                    setFilterEstado("all")
+                    setFilterCanal("all")
+                    setFilterClasificacion("all")
+                    setFilterComuna("all")
+                    setShowSuggestions(false)
+                  }}
+                >
+                  Limpiar Filtros
+                </Button>
               </div>
-
-              <div className="space-y-2">
-                <Label>Canal</Label>
-                <Select value={filterCanal} onValueChange={setFilterCanal}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los canales</SelectItem>
-                    {canalesUnicos.map((canal: string) => (
-                      <SelectItem key={canal} value={canal}>
-                        {canal}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Clasificación</Label>
-                <Select value={filterClasificacion} onValueChange={setFilterClasificacion}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas las clasificaciones</SelectItem>
-                    {clasificacionesUnicas.map((clasificacion: string) => (
-                      <SelectItem key={clasificacion} value={clasificacion}>
-                        {clasificacion}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Comuna</Label>
-                <Select value={filterComuna} onValueChange={setFilterComuna}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas las comunas</SelectItem>
-                    {comunasUnicas.map((comuna: string) => (
-                      <SelectItem key={comuna} value={comuna}>
-                        {comuna}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="mt-4 pt-4 border-t flex items-center justify-between">
-              <p className="text-sm text-gray-600">
-                Mostrando {filteredFeatures.length} de {features.length} direcciones
-              </p>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSearchTerm("")
-                  setFilterEstado("all")
-                  setFilterCanal("all")
-                  setFilterClasificacion("all")
-                  setFilterComuna("all")
-                }}
-              >
-                Limpiar Filtros
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
-      <Card className="shadow-xl border-2 border-gray-100">
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="h-[600px] flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-600 font-medium">Cargando direcciones con auto zoom...</p>
-                <p className="text-sm text-gray-500 mt-2">Haz clic en un punto para agregar feedback</p>
+      <div className={`${showFilters ? "mt-64" : ""}`}>
+        <Card className="shadow-xl border-2 border-gray-100">
+          <CardContent className="p-0">
+            {loading ? (
+              <div className="h-[600px] flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600 font-medium">Cargando direcciones con auto zoom...</p>
+                  <p className="text-sm text-gray-500 mt-2">Haz clic en un punto para agregar feedback</p>
+                </div>
               </div>
-            </div>
-          ) : (
-            <MapComponent
-              features={filteredFeatures}
-              selectedFeature={selectedFeature}
-              onFeatureSelect={handleFeatureSelect}
-              onFeatureCreate={() => {}}
-              isDrawMode={false}
-              isFeedbackMode={true}
-            />
-          )}
-        </CardContent>
-      </Card>
+            ) : (
+              <MapComponent
+                features={filteredFeatures}
+                selectedFeature={selectedFeature}
+                onFeatureSelect={handleFeatureSelect}
+                onFeatureCreate={() => {}}
+                isDrawMode={false}
+                isFeedbackMode={true}
+              />
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-2xl mx-auto top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999] max-h-[90vh] overflow-y-auto">
