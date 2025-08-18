@@ -1,7 +1,7 @@
 // Database connection and query utilities
 import { neon } from "@neondatabase/serverless"
 
-function getDatabaseUrl() {
+export function getDatabaseUrl() {
   // URL específica proporcionada por el usuario
   const specificUrl =
     "postgresql://neondb_owner:npg_YSWDm3bHO6Gt@ep-falling-truth-adjz53rq-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"

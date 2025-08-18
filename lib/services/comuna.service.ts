@@ -1,24 +1,19 @@
 import { neon } from "@neondatabase/serverless"
+import { getDatabaseUrl } from "../database"
 
-const sql = neon(process.env.DATABASE_URL!)
+const sql = neon(getDatabaseUrl())
 
 export interface Comuna {
   id_comuna: number
   nombre: string
-  codigo?: string
+  codigo_postal?: string
   region: string
-  provincia: string
-  activo: boolean
-  created_at: Date
-  updated_at: Date
 }
 
 export interface CreateComunaData {
   nombre: string
-  codigo?: string
+  codigo_postal?: string
   region: string
-  provincia: string
-  activo?: boolean
 }
 
 export interface UpdateComunaData extends Partial<CreateComunaData> {}
@@ -28,7 +23,7 @@ export class ComunaService {
     try {
       return await sql`
         SELECT * FROM comunas 
-        ORDER BY region, provincia, nombre ASC
+        ORDER BY region, nombre ASC
       `
     } catch (error) {
       console.error("Error obteniendo comunas:", error)
@@ -52,7 +47,7 @@ export class ComunaService {
     try {
       return await sql`
         SELECT * FROM comunas 
-        WHERE region = ${region} AND activo = true
+        WHERE region = ${region}
         ORDER BY nombre ASC
       `
     } catch (error) {
@@ -65,7 +60,6 @@ export class ComunaService {
     try {
       const result = await sql`
         SELECT DISTINCT region FROM comunas 
-        WHERE activo = true
         ORDER BY region ASC
       `
       return result.map((row) => row.region)
@@ -78,8 +72,8 @@ export class ComunaService {
   static async crear(datos: CreateComunaData): Promise<Comuna> {
     try {
       const result = await sql`
-        INSERT INTO comunas (nombre, codigo, region, provincia, activo)
-        VALUES (${datos.nombre}, ${datos.codigo || null}, ${datos.region}, ${datos.provincia}, ${datos.activo ?? true})
+        INSERT INTO comunas (nombre, codigo_postal, region)
+        VALUES (${datos.nombre}, ${datos.codigo_postal || null}, ${datos.region})
         RETURNING *
       `
       return result[0]
@@ -93,7 +87,7 @@ export class ComunaService {
     try {
       const result = await sql`
         UPDATE comunas 
-        SET ${sql(datos)}, updated_at = NOW()
+        SET ${sql(datos)}
         WHERE id_comuna = ${id}
         RETURNING *
       `

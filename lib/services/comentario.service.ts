@@ -1,6 +1,7 @@
 import { neon } from "@neondatabase/serverless"
+import { getDatabaseUrl } from "../database"
 
-const sql = neon(process.env.DATABASE_URL!)
+const sql = neon(getDatabaseUrl())
 
 export interface ComentarioPre {
   id_coment: string

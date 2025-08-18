@@ -29,59 +29,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
-        let realData: DashboardData | null = null
-
-        try {
-          const response = await fetch("/api/dashboard/stats")
-          if (response.ok) {
-            const apiData = await response.json()
-            realData = {
-              totalAddresses: apiData.total_addresses || 0,
-              verifiedAddresses: apiData.verified_addresses || 0,
-              pendingAddresses: apiData.pending_addresses || 0,
-              totalComments: apiData.total_comments || 0,
-              activeTeams: apiData.active_teams || 0,
-              activePlans: apiData.active_plans || 0,
-              chartData: [
-                {
-                  name: "Ene",
-                  usuarios: Math.floor(apiData.total_addresses * 0.05),
-                  rutas: Math.floor(apiData.active_teams * 3),
-                },
-                {
-                  name: "Feb",
-                  usuarios: Math.floor(apiData.total_addresses * 0.06),
-                  rutas: Math.floor(apiData.active_teams * 4),
-                },
-                {
-                  name: "Mar",
-                  usuarios: Math.floor(apiData.total_addresses * 0.07),
-                  rutas: Math.floor(apiData.active_teams * 5),
-                },
-                {
-                  name: "Abr",
-                  usuarios: Math.floor(apiData.total_addresses * 0.08),
-                  rutas: Math.floor(apiData.active_teams * 6),
-                },
-                {
-                  name: "May",
-                  usuarios: Math.floor(apiData.total_addresses * 0.09),
-                  rutas: Math.floor(apiData.active_teams * 7),
-                },
-                {
-                  name: "Jun",
-                  usuarios: Math.floor(apiData.total_addresses * 0.1),
-                  rutas: Math.floor(apiData.active_teams * 8),
-                },
-              ],
-            }
-            console.log("[v0] Datos reales obtenidos del dashboard:", realData)
-          }
-        } catch (apiError) {
-          console.log("[v0] Error obteniendo datos reales, usando datos mock:", apiError)
-        }
-
-        const finalData = realData || {
+        const mockData: DashboardData = {
           totalAddresses: 1247,
           verifiedAddresses: 892,
           pendingAddresses: 355,
@@ -97,19 +45,9 @@ export default function DashboardPage() {
             { name: "Jun", usuarios: 142, rutas: 62 },
           ],
         }
-
-        setData(finalData)
+        setData(mockData)
       } catch (error) {
-        console.error("[v0] Error loading dashboard data:", error)
-        setData({
-          totalAddresses: 0,
-          verifiedAddresses: 0,
-          pendingAddresses: 0,
-          totalComments: 0,
-          activeTeams: 0,
-          activePlans: 0,
-          chartData: [],
-        })
+        console.error("Error loading dashboard data:", error)
       } finally {
         setIsLoading(false)
       }
@@ -160,39 +98,27 @@ export default function DashboardPage() {
                     <CardContent className="space-y-4">
                       <div className="flex justify-between items-center">
                         <span className="text-sm font-medium text-gray-700">Eficiencia General</span>
-                        <span className="text-2xl font-bold text-green-600">
-                          {data.totalAddresses > 0
-                            ? Math.round((data.verifiedAddresses / data.totalAddresses) * 100)
-                            : 0}
-                          %
-                        </span>
+                        <span className="text-2xl font-bold text-green-600">87%</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                           className="bg-green-600 h-2 rounded-full transition-all duration-500"
-                          style={{
-                            width: `${data.totalAddresses > 0 ? Math.round((data.verifiedAddresses / data.totalAddresses) * 100) : 0}%`,
-                          }}
+                          style={{ width: "87%" }}
                         />
                       </div>
 
                       <div className="pt-4 space-y-3">
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Direcciones Verificadas</span>
-                          <span className="font-medium text-gray-900">
-                            {data.totalAddresses > 0
-                              ? Math.round((data.verifiedAddresses / data.totalAddresses) * 100)
-                              : 0}
-                            %
-                          </span>
+                          <span className="text-gray-600">Rutas Optimizadas</span>
+                          <span className="font-medium text-gray-900">87%</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Equipos Activos</span>
-                          <span className="font-medium text-gray-900">{data.activeTeams}</span>
+                          <span className="text-gray-600">Tiempo de Respuesta</span>
+                          <span className="font-medium text-gray-900">1.2s</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Planes en Progreso</span>
-                          <span className="font-medium text-gray-900">{data.activePlans}</span>
+                          <span className="text-gray-600">Disponibilidad</span>
+                          <span className="font-medium text-gray-900">99.9%</span>
                         </div>
                       </div>
                     </CardContent>
