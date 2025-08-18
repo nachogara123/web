@@ -70,6 +70,8 @@ export default function MapaDibujoPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [filterEstado, setFilterEstado] = useState<string>("all")
   const [filterCanal, setFilterCanal] = useState<string>("all")
+  const [filterClasificacion, setFilterClasificacion] = useState<string>("all")
+  const [filterComuna, setFilterComuna] = useState<string>("all")
   const [showFilters, setShowFilters] = useState(true)
   const [newFeatureData, setNewFeatureData] = useState({
     name: "",
@@ -163,9 +165,36 @@ export default function MapaDibujoPage() {
 
     const matchesEstado = filterEstado === "all" || address.estado_nombre === filterEstado
     const matchesCanal = filterCanal === "all" || address.canal_nombre === filterCanal
+    const matchesClasificacion = filterClasificacion === "all" || address.clasificacion_nombre === filterClasificacion
+    const matchesComuna = filterComuna === "all" || address.comuna_nombre === filterComuna
 
-    return matchesSearch && matchesEstado && matchesCanal
+    return matchesSearch && matchesEstado && matchesCanal && matchesClasificacion && matchesComuna
   })
+
+  const estadosUnicos = [...new Set(direcciones.map((d) => d.estado_nombre).filter(Boolean))]
+  const canalesUnicos = [...new Set(direcciones.map((d) => d.canal_nombre).filter(Boolean))]
+  const clasificacionesUnicas = [...new Set(direcciones.map((d) => d.clasificacion_nombre).filter(Boolean))]
+  const comunasUnicas = [...new Set(direcciones.map((d) => d.comuna_nombre).filter(Boolean))]
+
+  if (!hasAccess) {
+    return (
+      <div className="pt-16 p-6">
+        <Alert className="max-w-2xl mx-auto">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription className="text-center">
+            <div className="space-y-2">
+              <p className="font-semibold">Acceso Restringido</p>
+              <p>
+                Solo los administradores y supervisores pueden acceder a la funcionalidad de dibujo y creación de
+                elementos en el mapa.
+              </p>
+              <p className="text-sm text-gray-600">Tu rol actual: {user?.role || "usuario"}</p>
+            </div>
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
 
   const handleFeatureCreate = (featureData: any) => {
     const newFeature: MapFeature = {
@@ -240,29 +269,6 @@ export default function MapaDibujoPage() {
     }
   }
 
-  const estadosUnicos = [...new Set(direcciones.map((d) => d.estado_nombre).filter(Boolean))]
-  const canalesUnicos = [...new Set(direcciones.map((d) => d.canal_nombre).filter(Boolean))]
-
-  if (!hasAccess) {
-    return (
-      <div className="pt-16 p-6">
-        <Alert className="max-w-2xl mx-auto">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription className="text-center">
-            <div className="space-y-2">
-              <p className="font-semibold">Acceso Restringido</p>
-              <p>
-                Solo los administradores y supervisores pueden acceder a la funcionalidad de dibujo y creación de
-                elementos en el mapa.
-              </p>
-              <p className="text-sm text-gray-600">Tu rol actual: {user?.role || "usuario"}</p>
-            </div>
-          </AlertDescription>
-        </Alert>
-      </div>
-    )
-  }
-
   return (
     <div className="pt-16 p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -293,7 +299,7 @@ export default function MapaDibujoPage() {
             <CardDescription>Filtra las direcciones de la base de datos</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div className="space-y-2">
                 <Label>Buscar</Label>
                 <div className="relative">
@@ -340,6 +346,40 @@ export default function MapaDibujoPage() {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="space-y-2">
+                <Label>Clasificación</Label>
+                <Select value={filterClasificacion} onValueChange={setFilterClasificacion}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las clasificaciones</SelectItem>
+                    {clasificacionesUnicas.map((clasificacion) => (
+                      <SelectItem key={clasificacion} value={clasificacion}>
+                        {clasificacion}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Comuna</Label>
+                <Select value={filterComuna} onValueChange={setFilterComuna}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las comunas</SelectItem>
+                    {comunasUnicas.map((comuna) => (
+                      <SelectItem key={comuna} value={comuna}>
+                        {comuna}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="mt-4 pt-4 border-t flex items-center justify-between">
@@ -353,6 +393,8 @@ export default function MapaDibujoPage() {
                   setSearchTerm("")
                   setFilterEstado("all")
                   setFilterCanal("all")
+                  setFilterClasificacion("all")
+                  setFilterComuna("all")
                 }}
               >
                 Limpiar Filtros

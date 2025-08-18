@@ -54,6 +54,12 @@ interface ComentarioReal {
   created_at: string
 }
 
+interface ComentarioPredefinido {
+  comentario: string
+  tipo_feedback: string
+  categoria: string
+}
+
 interface MapFeature {
   id: string
   type: "marker" | "polygon" | "polyline" | "circle"
@@ -70,38 +76,170 @@ interface MapFeature {
   feedback?: ComentarioReal[]
 }
 
-const comentariosPredefinidos = [
-  "Dirección verificada correctamente",
-  "Problema de acceso al inmueble",
-  "Coordenadas incorrectas",
-  "Falta información de contacto",
-  "Requiere revisión técnica",
-  "Estado de la infraestructura deficiente",
-  "Acceso restringido por seguridad",
-  "Información actualizada exitosamente",
-  "Requiere coordinación con propietario",
-  "Problema de conectividad en la zona",
-  "Mantenimiento preventivo necesario",
-  "Documentación incompleta",
-]
+const fetchDirecciones = async (setLoading: any, setDirecciones: any, setFeatures: any, toast: any) => {
+  try {
+    setLoading(true)
+    console.log("[v0] Obteniendo direcciones para feedback...")
 
-const tiposFeedback = [
-  { value: "issue", label: "Problema", color: "bg-red-100 text-red-800" },
-  { value: "suggestion", label: "Sugerencia", color: "bg-blue-100 text-blue-800" },
-  { value: "info", label: "Información", color: "bg-green-100 text-green-800" },
-  { value: "maintenance", label: "Mantenimiento", color: "bg-yellow-100 text-yellow-800" },
-]
+    const response = await fetch("/api/direcciones?limit=500")
+    const result = await response.json()
 
-const categoriasFeedback = [
-  "Accesibilidad",
-  "Conectividad",
-  "Estado físico",
-  "Señalización",
-  "Tráfico",
-  "Seguridad",
-  "Infraestructura",
-  "Otros",
-]
+    if (result.success) {
+      console.log(`[v0] Direcciones obtenidas para feedback: ${result.data.length}`)
+      setDirecciones(result.data)
+
+      const mapFeatures: MapFeature[] = result.data
+        .filter((dir: DatabaseAddress) => dir.lat && dir.lon)
+        .map((dir: DatabaseAddress) => ({
+          id: `address-${dir.id_direccion}`,
+          type: "marker" as const,
+          name: dir.direccion_final,
+          description: `${dir.comuna_nombre || "Sin comuna"} - ${dir.estado_nombre || "Sin estado"}`,
+          coordinates: [dir.lat!, dir.lon!],
+          properties: {
+            color: getColorByStatus(dir.estado_nombre, dir.verificada),
+            category: "address",
+            status: dir.verificada ? "active" : "pending",
+            address: dir,
+          },
+          createdAt: dir.created_at,
+          feedback: [],
+        }))
+
+      setFeatures(mapFeatures)
+      toast({
+        title: "Direcciones cargadas",
+        description: `Se cargaron ${mapFeatures.length} direcciones para feedback con auto zoom.`,
+      })
+    } else {
+      toast({
+        title: "Error",
+        description: result.message || "Error al cargar direcciones",
+        variant: "destructive",
+      })
+    }
+  } catch (error) {
+    console.error("[v0] Error obteniendo direcciones:", error)
+    toast({
+      title: "Error de conexión",
+      description: "No se pudieron cargar las direcciones",
+      variant: "destructive",
+    })
+  } finally {
+    setLoading(false)
+  }
+}
+
+const fetchExistingComments = async (direccionId: number, setComentariosExistentes: any) => {
+  try {
+    console.log(`[v0] Obteniendo comentarios para dirección ${direccionId}...`)
+    const response = await fetch(`/api/comentarios?direccion_id=${direccionId}`)
+    const comentarios = await response.json()
+
+    console.log(`[v0] Comentarios obtenidos: ${comentarios.length}`)
+    setComentariosExistentes(comentarios)
+    return comentarios
+  } catch (error) {
+    console.error("[v0] Error obteniendo comentarios:", error)
+    return []
+  }
+}
+
+const fetchComentariosPredefinidos = async (setComentariosPredefinidos: any) => {
+  try {
+    console.log("[v0] Obteniendo comentarios predefinidos...")
+    const response = await fetch("/api/comentarios-predefinidos")
+    const result = await response.json()
+
+    if (result.success) {
+      console.log(`[v0] Comentarios predefinidos obtenidos: ${result.data.length}`)
+      setComentariosPredefinidos(result.data)
+    } else {
+      console.error("[v0] Error obteniendo comentarios predefinidos:", result.message)
+    }
+  } catch (error) {
+    console.error("[v0] Error obteniendo comentarios predefinidos:", error)
+  }
+}
+
+const getColorByStatus = (estado?: string, verificada?: boolean) => {
+  if (verificada) return "#10b981" // Verde para verificadas
+  if (estado?.toLowerCase().includes("pendiente")) return "#f59e0b" // Amarillo para pendientes
+  if (estado?.toLowerCase().includes("completado")) return "#3b82f6" // Azul para completadas
+  if (estado?.toLowerCase().includes("error")) return "#ef4444" // Rojo para errores
+  return "#6b7280" // Gris por defecto
+}
+
+const handleSubmitFeedback = async (
+  selectedFeature: any,
+  comentarioTexto: any,
+  tipoFeedback: any,
+  categoriaFeedback: any,
+  setIsDialogOpen: any,
+  setComentarioTexto: any,
+  setTipoFeedback: any,
+  setCategoriaFeedback: any,
+  toast: any,
+) => {
+  if (!selectedFeature || !comentarioTexto.trim() || !tipoFeedback) {
+    toast({
+      title: "Error",
+      description: "Por favor completa todos los campos requeridos",
+      variant: "destructive",
+    })
+    return
+  }
+
+  try {
+    console.log("[v0] Enviando feedback a la base de datos...")
+
+    const response = await fetch("/api/comentarios", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        comentario: comentarioTexto,
+        tipo_feedback: tipoFeedback,
+        categoria: categoriaFeedback,
+        direccion_id: selectedFeature.properties.address?.id_direccion,
+        creado_por: "usuario-demo", // En producción sería el ID del usuario actual
+      }),
+    })
+
+    if (response.ok) {
+      const nuevoComentario = await response.json()
+
+      // Actualizar la lista de comentarios
+      await fetchExistingComments(selectedFeature.properties.address!.id_direccion, setIsDialogOpen)
+
+      // Limpiar formulario
+      setComentarioTexto("")
+      setTipoFeedback("")
+      setCategoriaFeedback("")
+      setIsDialogOpen(false)
+
+      toast({
+        title: "Feedback enviado",
+        description: "Tu comentario ha sido guardado en la base de datos.",
+      })
+    } else {
+      throw new Error("Error al enviar feedback")
+    }
+  } catch (error) {
+    console.error("[v0] Error enviando feedback:", error)
+    toast({
+      title: "Error",
+      description: "No se pudo enviar el feedback. Intenta nuevamente.",
+      variant: "destructive",
+    })
+  }
+}
+
+const getFeedbackTypeColor = (type: string, tiposFeedback: any) => {
+  const tipoEncontrado = tiposFeedback.find((t: any) => t.value === type)
+  return tipoEncontrado?.color || "bg-gray-100 text-gray-800"
+}
 
 export default function MapaFeedbackPage() {
   const [direcciones, setDirecciones] = useState<DatabaseAddress[]>([])
@@ -117,92 +255,36 @@ export default function MapaFeedbackPage() {
   const [filterCanal, setFilterCanal] = useState<string>("all")
   const [showFilters, setShowFilters] = useState(true)
   const [comentariosExistentes, setComentariosExistentes] = useState<ComentarioReal[]>([])
-
   const [filterClasificacion, setFilterClasificacion] = useState<string>("all")
   const [filterComuna, setFilterComuna] = useState<string>("all")
+  const [comentariosPredefinidos, setComentariosPredefinidos] = useState<ComentarioPredefinido[]>([])
 
-  const fetchDirecciones = async () => {
-    try {
-      setLoading(true)
-      console.log("[v0] Obteniendo direcciones para feedback...")
+  const estadosUnicos = [...new Set(direcciones.map((d: DatabaseAddress) => d.estado_nombre).filter(Boolean))]
+  const canalesUnicos = [...new Set(direcciones.map((d: DatabaseAddress) => d.canal_nombre).filter(Boolean))]
+  const clasificacionesUnicas = [
+    ...new Set(direcciones.map((d: DatabaseAddress) => d.clasificacion_nombre).filter(Boolean)),
+  ]
+  const comunasUnicas = [...new Set(direcciones.map((d: DatabaseAddress) => d.comuna_nombre).filter(Boolean))]
 
-      const response = await fetch("/api/direcciones?limit=500")
-      const result = await response.json()
+  const tiposFeedback = [
+    { value: "problema", label: "Problema", color: "bg-red-100 text-red-800" },
+    { value: "sugerencia", label: "Sugerencia", color: "bg-blue-100 text-blue-800" },
+    { value: "informacion", label: "Información", color: "bg-green-100 text-green-800" },
+    { value: "mantenimiento", label: "Mantenimiento", color: "bg-yellow-100 text-yellow-800" },
+  ]
 
-      if (result.success) {
-        console.log(`[v0] Direcciones obtenidas para feedback: ${result.data.length}`)
-        setDirecciones(result.data)
+  const categoriasFeedback = [
+    "accesibilidad",
+    "conectividad",
+    "estado_fisico",
+    "señalizacion",
+    "trafico",
+    "seguridad",
+    "infraestructura",
+    "otros",
+  ]
 
-        const mapFeatures: MapFeature[] = result.data
-          .filter((dir: DatabaseAddress) => dir.lat && dir.lon)
-          .map((dir: DatabaseAddress) => ({
-            id: `address-${dir.id_direccion}`,
-            type: "marker" as const,
-            name: dir.direccion_final,
-            description: `${dir.comuna_nombre || "Sin comuna"} - ${dir.estado_nombre || "Sin estado"}`,
-            coordinates: [dir.lat!, dir.lon!],
-            properties: {
-              color: getColorByStatus(dir.estado_nombre, dir.verificada),
-              category: "address",
-              status: dir.verificada ? "active" : "pending",
-              address: dir,
-            },
-            createdAt: dir.created_at,
-            feedback: [],
-          }))
-
-        setFeatures(mapFeatures)
-        toast({
-          title: "Direcciones cargadas",
-          description: `Se cargaron ${mapFeatures.length} direcciones para feedback con auto zoom.`,
-        })
-      } else {
-        toast({
-          title: "Error",
-          description: result.message || "Error al cargar direcciones",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("[v0] Error obteniendo direcciones:", error)
-      toast({
-        title: "Error de conexión",
-        description: "No se pudieron cargar las direcciones",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchExistingComments = async (direccionId: number) => {
-    try {
-      console.log(`[v0] Obteniendo comentarios para dirección ${direccionId}...`)
-      const response = await fetch(`/api/comentarios?direccion_id=${direccionId}`)
-      const comentarios = await response.json()
-
-      console.log(`[v0] Comentarios obtenidos: ${comentarios.length}`)
-      setComentariosExistentes(comentarios)
-      return comentarios
-    } catch (error) {
-      console.error("[v0] Error obteniendo comentarios:", error)
-      return []
-    }
-  }
-
-  const getColorByStatus = (estado?: string, verificada?: boolean) => {
-    if (verificada) return "#10b981" // Verde para verificadas
-    if (estado?.toLowerCase().includes("pendiente")) return "#f59e0b" // Amarillo para pendientes
-    if (estado?.toLowerCase().includes("completado")) return "#3b82f6" // Azul para completadas
-    if (estado?.toLowerCase().includes("error")) return "#ef4444" // Rojo para errores
-    return "#6b7280" // Gris por defecto
-  }
-
-  useEffect(() => {
-    fetchDirecciones()
-  }, [])
-
-  const filteredFeatures = features.filter((feature) => {
+  const filteredFeatures = features.filter((feature: MapFeature) => {
     const address = feature.properties.address
     if (!address) return false
 
@@ -229,7 +311,7 @@ export default function MapaFeedbackPage() {
 
     setSelectedFeature(feature)
     if (feature.properties.address) {
-      const comentarios = await fetchExistingComments(feature.properties.address.id_direccion)
+      const comentarios = await fetchExistingComments(feature.properties.address.id_direccion, setComentariosExistentes)
       setSelectedFeature({
         ...feature,
         feedback: comentarios,
@@ -238,71 +320,10 @@ export default function MapaFeedbackPage() {
     }
   }
 
-  const handleSubmitFeedback = async () => {
-    if (!selectedFeature || !comentarioTexto.trim() || !tipoFeedback) {
-      toast({
-        title: "Error",
-        description: "Por favor completa todos los campos requeridos",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      console.log("[v0] Enviando feedback a la base de datos...")
-
-      const response = await fetch("/api/comentarios", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          comentario: comentarioTexto,
-          tipo_feedback: tipoFeedback,
-          categoria: categoriaFeedback,
-          direccion_id: selectedFeature.properties.address?.id_direccion,
-          creado_por: "usuario-demo", // En producción sería el ID del usuario actual
-        }),
-      })
-
-      if (response.ok) {
-        const nuevoComentario = await response.json()
-
-        // Actualizar la lista de comentarios
-        await fetchExistingComments(selectedFeature.properties.address!.id_direccion)
-
-        // Limpiar formulario
-        setComentarioTexto("")
-        setTipoFeedback("")
-        setCategoriaFeedback("")
-        setIsDialogOpen(false)
-
-        toast({
-          title: "Feedback enviado",
-          description: "Tu comentario ha sido guardado en la base de datos.",
-        })
-      } else {
-        throw new Error("Error al enviar feedback")
-      }
-    } catch (error) {
-      console.error("[v0] Error enviando feedback:", error)
-      toast({
-        title: "Error",
-        description: "No se pudo enviar el feedback. Intenta nuevamente.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const getFeedbackTypeColor = (type: string) => {
-    const tipoEncontrado = tiposFeedback.find((t) => t.value === type)
-    return tipoEncontrado?.color || "bg-gray-100 text-gray-800"
-  }
-
-  const estadosUnicos = [...new Set(direcciones.map((d) => d.estado_nombre).filter(Boolean))]
-  const canalesUnicos = [...new Set(direcciones.map((d) => d.canal_nombre).filter(Boolean))]
-  const clasificacionesUnicas = [...new Set(direcciones.map((d) => d.clasificacion_nombre).filter(Boolean))]
-  const comunasUnicas = [...new Set(direcciones.map((d) => d.comuna_nombre).filter(Boolean))]
+  useEffect(() => {
+    fetchDirecciones(setLoading, setDirecciones, setFeatures, toast)
+    fetchComentariosPredefinidos(setComentariosPredefinidos)
+  }, [])
 
   return (
     <div className="pt-16 p-6 space-y-6">
@@ -356,7 +377,7 @@ export default function MapaFeedbackPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos los estados</SelectItem>
-                    {estadosUnicos.map((estado) => (
+                    {estadosUnicos.map((estado: string) => (
                       <SelectItem key={estado} value={estado}>
                         {estado}
                       </SelectItem>
@@ -373,7 +394,7 @@ export default function MapaFeedbackPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos los canales</SelectItem>
-                    {canalesUnicos.map((canal) => (
+                    {canalesUnicos.map((canal: string) => (
                       <SelectItem key={canal} value={canal}>
                         {canal}
                       </SelectItem>
@@ -390,7 +411,7 @@ export default function MapaFeedbackPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas las clasificaciones</SelectItem>
-                    {clasificacionesUnicas.map((clasificacion) => (
+                    {clasificacionesUnicas.map((clasificacion: string) => (
                       <SelectItem key={clasificacion} value={clasificacion}>
                         {clasificacion}
                       </SelectItem>
@@ -407,7 +428,7 @@ export default function MapaFeedbackPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas las comunas</SelectItem>
-                    {comunasUnicas.map((comuna) => (
+                    {comunasUnicas.map((comuna: string) => (
                       <SelectItem key={comuna} value={comuna}>
                         {comuna}
                       </SelectItem>
@@ -552,7 +573,7 @@ export default function MapaFeedbackPage() {
                         <SelectValue placeholder="Selecciona tipo..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {tiposFeedback.map((tipo) => (
+                        {tiposFeedback.map((tipo: any) => (
                           <SelectItem key={tipo.value} value={tipo.value}>
                             <div className="flex items-center gap-2">
                               <Badge className={`text-xs ${tipo.color}`}>{tipo.label}</Badge>
@@ -570,7 +591,7 @@ export default function MapaFeedbackPage() {
                         <SelectValue placeholder="Selecciona categoría..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {categoriasFeedback.map((categoria) => (
+                        {categoriasFeedback.map((categoria: string) => (
                           <SelectItem key={categoria} value={categoria}>
                             {categoria}
                           </SelectItem>
@@ -587,9 +608,14 @@ export default function MapaFeedbackPage() {
                       <SelectValue placeholder="Selecciona un comentario predefinido..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {comentariosPredefinidos.map((comentario) => (
-                        <SelectItem key={comentario} value={comentario}>
-                          {comentario}
+                      {comentariosPredefinidos.map((comentario: ComentarioPredefinido, index: number) => (
+                        <SelectItem key={index} value={comentario.comentario}>
+                          <div className="flex flex-col">
+                            <span>{comentario.comentario}</span>
+                            <span className="text-xs text-gray-500">
+                              {comentario.tipo_feedback} - {comentario.categoria}
+                            </span>
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -598,7 +624,19 @@ export default function MapaFeedbackPage() {
                 </div>
 
                 <Button
-                  onClick={handleSubmitFeedback}
+                  onClick={() =>
+                    handleSubmitFeedback(
+                      selectedFeature,
+                      comentarioTexto,
+                      tipoFeedback,
+                      categoriaFeedback,
+                      setIsDialogOpen,
+                      setComentarioTexto,
+                      setTipoFeedback,
+                      setCategoriaFeedback,
+                      toast,
+                    )
+                  }
                   disabled={!comentarioTexto.trim() || !tipoFeedback}
                   className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 rounded-lg shadow-lg transition-all duration-200"
                 >
@@ -614,12 +652,14 @@ export default function MapaFeedbackPage() {
                     Comentarios Anteriores ({comentariosExistentes.length})
                   </h3>
                   <div className="space-y-3 max-h-60 overflow-y-auto">
-                    {comentariosExistentes.map((comentario) => (
+                    {comentariosExistentes.map((comentario: ComentarioReal) => (
                       <div key={comentario.id_coment} className="p-3 bg-white border rounded-lg shadow-sm">
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex items-center gap-2">
                             {comentario.tipo_feedback && (
-                              <Badge className={`text-xs ${getFeedbackTypeColor(comentario.tipo_feedback)}`}>
+                              <Badge
+                                className={`text-xs ${getFeedbackTypeColor(comentario.tipo_feedback, tiposFeedback)}`}
+                              >
                                 {comentario.tipo_feedback}
                               </Badge>
                             )}
