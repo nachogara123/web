@@ -171,6 +171,73 @@ function FeedbackControl({ isFeedbackMode }: { isFeedbackMode: boolean }) {
   return null
 }
 
+function AutoZoom({ features }: { features: MapFeature[] }) {
+  const map = useMap()
+
+  useEffect(() => {
+    if (!map || !features || features.length === 0) return
+
+    console.log("[v0] AutoZoom: Calculando bounds para", features.length, "features")
+
+    const bounds = L.latLngBounds([])
+    let hasValidBounds = false
+
+    features.forEach((feature) => {
+      try {
+        if (feature.type === "marker" && feature.coordinates) {
+          const [lat, lng] = feature.coordinates
+          if (typeof lat === "number" && typeof lng === "number" && !isNaN(lat) && !isNaN(lng)) {
+            bounds.extend([lat, lng])
+            hasValidBounds = true
+          }
+        } else if (feature.type === "polygon" && Array.isArray(feature.coordinates)) {
+          feature.coordinates.forEach((coord: [number, number]) => {
+            if (Array.isArray(coord) && coord.length >= 2) {
+              const [lat, lng] = coord
+              if (typeof lat === "number" && typeof lng === "number" && !isNaN(lat) && !isNaN(lng)) {
+                bounds.extend([lat, lng])
+                hasValidBounds = true
+              }
+            }
+          })
+        } else if (feature.type === "polyline" && Array.isArray(feature.coordinates)) {
+          feature.coordinates.forEach((coord: [number, number]) => {
+            if (Array.isArray(coord) && coord.length >= 2) {
+              const [lat, lng] = coord
+              if (typeof lat === "number" && typeof lng === "number" && !isNaN(lat) && !isNaN(lng)) {
+                bounds.extend([lat, lng])
+                hasValidBounds = true
+              }
+            }
+          })
+        } else if (feature.type === "circle" && feature.coordinates?.center) {
+          const [lat, lng] = feature.coordinates.center
+          if (typeof lat === "number" && typeof lng === "number" && !isNaN(lat) && !isNaN(lng)) {
+            bounds.extend([lat, lng])
+            hasValidBounds = true
+          }
+        }
+      } catch (error) {
+        console.log("[v0] Error procesando feature para bounds:", error)
+      }
+    })
+
+    if (hasValidBounds && bounds.isValid()) {
+      console.log("[v0] AutoZoom: Aplicando fitBounds con", bounds.getNorthEast(), bounds.getSouthWest())
+      map.fitBounds(bounds, {
+        padding: [20, 20],
+        maxZoom: 16,
+      })
+    } else {
+      console.log("[v0] AutoZoom: No se encontraron bounds válidos, usando vista por defecto")
+      // Fallback a Chile si no hay bounds válidos
+      map.setView([-33.4489, -70.6693], 6)
+    }
+  }, [map, features])
+
+  return null
+}
+
 export default function MapComponent({
   features,
   selectedFeature,
@@ -281,8 +348,8 @@ export default function MapComponent({
 
   return (
     <MapContainer
-      center={[40.4168, -3.7038]}
-      zoom={13}
+      center={[-33.4489, -70.6693]} // Cambiado a coordenadas de Chile como fallback
+      zoom={6} // Zoom inicial más amplio para Chile
       style={{ height: "600px", width: "100%" }}
       className="rounded-lg"
     >
@@ -290,6 +357,8 @@ export default function MapComponent({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
+
+      <AutoZoom features={features} />
 
       {features.map(renderFeature)}
 
