@@ -1,8 +1,16 @@
 // Database connection and query utilities
 import { neon } from "@neondatabase/serverless"
 
+const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.NEON_DATABASE_URL
+
+if (!databaseUrl) {
+  throw new Error(
+    "No se encontró la variable de entorno de la base de datos. Verifica que DATABASE_URL esté configurada.",
+  )
+}
+
 // Crear conexión SQL usando Neon
-export const sql = neon(process.env.DATABASE_URL!)
+export const sql = neon(databaseUrl)
 
 export interface DatabaseUser {
   id_user: string
