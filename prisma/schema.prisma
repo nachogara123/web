@@ -1,0 +1,342 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id_user       String    @id @default(uuid()) @db.Uuid
+  nombre        String?   @db.VarChar
+  email         String?   @db.VarChar
+  clave         String?
+  telefono      String?   @db.VarChar
+  avatar_url    String?
+  activo        Boolean?  @default(true)
+  ultimo_acceso DateTime? @db.Timestamp(6)
+  created_at    DateTime? @default(now()) @db.Timestamp(6)
+  updated_at    DateTime? @db.Timestamp(6)
+  rol_id        String?   @db.Uuid
+
+  // Relaciones
+  rol                    Rol?                    @relation(fields: [rol_id], references: [id_rol])
+  equipos                UsuarioEquipo[]
+  historial_ubicaciones  HistorialUbicacion[]
+  rutas_sugeridas        RutaSugerida[]
+  zonas_asignadas        ZonaAsignada[]
+  zonas_prioritarias     ZonaPrioritaria[]
+  notificaciones         Notificacion[]
+  comentarios_pre        ComentarioPre[]
+  planes_creados         PlanTrabajo[]           @relation("PlanCreadoPor")
+  planes_actualizados    PlanTrabajo[]           @relation("PlanActualizadoPor")
+  direcciones_verificadas Direccion[]
+  auditorias             Auditoria[]
+  configuraciones_updated ConfiguracionSistema[] @relation("ConfigUpdatedBy")
+  equipos_supervisados   Equipo[]               @relation("EquipoSupervisor")
+
+  @@map("usuarios")
+}
+
+model Rol {
+  id_rol      String    @id @default(uuid()) @db.Uuid
+  nombre      String?   @db.VarChar
+  descripcion String?
+  permisos    Json?     @db.JsonB
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+
+  // Relaciones
+  usuarios Usuario[]
+
+  @@map("roles")
+}
+
+model Equipo {
+  id_equipo       String    @id @default(uuid()) @db.Uuid
+  nombre          String?   @db.VarChar
+  descripcion     String?
+  tipo            String?   @db.VarChar
+  activo          Boolean?  @default(true)
+  fecha_creacion  DateTime? @db.Date
+  created_at      DateTime? @default(now()) @db.Timestamp(6)
+  id_supervisor   String?   @db.Uuid
+
+  // Relaciones
+  supervisor      Usuario?        @relation("EquipoSupervisor", fields: [id_supervisor], references: [id_user])
+  usuarios        UsuarioEquipo[]
+  planes_trabajo  PlanTrabajo[]
+
+  @@map("equipos")
+}
+
+model UsuarioEquipo {
+  id_usuario       String    @db.Uuid
+  id_equipo        String    @db.Uuid
+  rol_en_equipo    String?   @db.VarChar
+  fecha_asignacion DateTime? @db.Date
+  activo           Boolean?  @default(true)
+
+  // Relaciones
+  usuario Usuario @relation(fields: [id_usuario], references: [id_user])
+  equipo  Equipo  @relation(fields: [id_equipo], references: [id_equipo])
+
+  @@id([id_usuario, id_equipo])
+  @@map("usuarios_equipos")
+}
+
+model PlanTrabajo {
+  id_plan         String    @id @default(uuid()) @db.Uuid
+  año             Int?
+  semana          Int?
+  fecha_inicio    DateTime? @db.Date
+  fecha_fin       DateTime? @db.Date
+  objetivos       String?
+  estado          String?   @db.VarChar
+  progreso        Int?      @default(0)
+  id_equipo       String?   @db.Uuid
+  creado_por      String?   @db.Uuid
+  actualizado_por String?   @db.Uuid
+  created_at      DateTime? @default(now()) @db.Timestamp(6)
+  updated_at      DateTime? @db.Timestamp(6)
+
+  // Relaciones
+  equipo            Equipo?  @relation(fields: [id_equipo], references: [id_equipo])
+  usuario_creador   Usuario? @relation("PlanCreadoPor", fields: [creado_por], references: [id_user])
+  usuario_actualizador Usuario? @relation("PlanActualizadoPor", fields: [actualizado_por], references: [id_user])
+
+  @@map("planes_trabajo")
+}
+
+model Direccion {
+  id_direccion        Int       @id @default(autoincrement())
+  direccion_final     String?
+  lat                 Float?    @db.DoublePrecision
+  lon                 Float?    @db.DoublePrecision
+  contador            Int?
+  id_cto              String?   @db.VarChar
+  hub_feeder_zona     String?   @db.VarChar
+  nota                String?   @db.VarChar
+  verificada          Boolean?  @default(false)
+  fecha_verificacion  DateTime? @db.Timestamp(6)
+  verificada_por      String?   @db.Uuid
+  created_at          DateTime? @default(now()) @db.Timestamp(6)
+  updated_at          DateTime? @db.Timestamp(6)
+  id_comuna           Int?
+  id_canal            Int?
+  id_clasificacion    Int?
+  id_estado           Int?
+  id_tipo_vivienda    Int?
+
+  // Relaciones
+  comuna              Comuna?            @relation(fields: [id_comuna], references: [id_comuna])
+  canal               Canal?             @relation(fields: [id_canal], references: [id_canal])
+  clasificacion       Clasificacion?     @relation(fields: [id_clasificacion], references: [id_clasificacion])
+  estado              EstadoDireccion?   @relation(fields: [id_estado], references: [id_estado])
+  tipo_vivienda       TipoVivienda?      @relation(fields: [id_tipo_vivienda], references: [id_tipo_vivienda])
+  verificador         Usuario?           @relation(fields: [verificada_por], references: [id_user])
+  historias_comentarios HistoriaComentario[]
+
+  @@map("direcciones")
+}
+
+model Canal {
+  id_canal    Int       @id @default(autoincrement())
+  nombre      String?   @db.VarChar
+  descripcion String?
+  activo      Boolean?  @default(true)
+
+  // Relaciones
+  direcciones Direccion[]
+
+  @@map("canales")
+}
+
+model Clasificacion {
+  id_clasificacion Int       @id @default(autoincrement())
+  nombre           String?   @db.VarChar
+  descripcion      String?
+  prioridad        Int?
+
+  // Relaciones
+  direcciones Direccion[]
+
+  @@map("clasificaciones")
+}
+
+model EstadoDireccion {
+  id_estado   Int       @id @default(autoincrement())
+  nombre      String?   @db.VarChar
+  descripcion String?
+  color_hex   String?   @db.VarChar
+
+  // Relaciones
+  direcciones Direccion[]
+
+  @@map("estados_direccion")
+}
+
+model Comuna {
+  id_comuna     Int       @id @default(autoincrement())
+  nombre        String?   @db.VarChar
+  region        String?   @db.VarChar
+  codigo_postal String?   @db.VarChar
+
+  // Relaciones
+  direcciones Direccion[]
+
+  @@map("comunas")
+}
+
+model TipoVivienda {
+  id_tipo_vivienda Int       @id @default(autoincrement())
+  nombre           String?   @db.VarChar
+  descripcion      String?
+
+  // Relaciones
+  direcciones Direccion[]
+
+  @@map("tipos_vivienda")
+}
+
+model HistorialUbicacion {
+  id_historial      String    @id @default(uuid()) @db.Uuid
+  id_usuario        String?   @db.Uuid
+  fecha_hora        DateTime? @db.Timestamp(6)
+  precision_metros  Decimal?  @db.Decimal
+  velocidad_kmh     Decimal?  @db.Decimal
+  direccion_grados  Int?
+
+  // Relaciones
+  usuario Usuario? @relation(fields: [id_usuario], references: [id_user])
+
+  @@map("historial_ubicaciones")
+}
+
+model RutaSugerida {
+  id_ruta                String    @id @default(uuid()) @db.Uuid
+  nombre                 String?   @db.VarChar
+  descripcion            String?
+  estado                 String?   @db.VarChar
+  prioridad              Int?
+  distancia_km           Decimal?  @db.Decimal
+  tiempo_estimado_horas  Decimal?  @db.Decimal
+  id_usuario             String?   @db.Uuid
+  created_at             DateTime? @default(now()) @db.Timestamp(6)
+
+  // Relaciones
+  usuario Usuario? @relation(fields: [id_usuario], references: [id_user])
+
+  @@map("rutas_sugeridas")
+}
+
+model ZonaPrioritaria {
+  id_zona          String    @id @default(uuid()) @db.Uuid
+  nombre           String?   @db.VarChar
+  descripcion      String?
+  nivel_prioridad  Int?
+  color_hex        String?   @db.VarChar
+  activa           Boolean?  @default(true)
+  id_usuario       String?   @db.Uuid
+  created_at       DateTime? @default(now()) @db.Timestamp(6)
+
+  // Relaciones
+  usuario Usuario? @relation(fields: [id_usuario], references: [id_user])
+
+  @@map("zonas_prioritarias")
+}
+
+model ZonaAsignada {
+  id_zona            String    @id @default(uuid()) @db.Uuid
+  nombre             String?   @db.VarChar
+  descripcion        String?
+  estado             String?   @db.VarChar
+  fecha_asignacion   DateTime? @db.Timestamp(6)
+  fecha_vencimiento  DateTime? @db.Date
+  id_usuario         String?   @db.Uuid
+
+  // Relaciones
+  usuario Usuario? @relation(fields: [id_usuario], references: [id_user])
+
+  @@map("zonas_asignadas")
+}
+
+model HistoriaComentario {
+  id_histo         String    @id @default(uuid()) @db.Uuid
+  id_comentario    String?   @db.Uuid
+  id_direccion     Int?
+  id_usuario       String?   @db.Uuid
+  fecha_comentario DateTime? @db.Timestamp(6)
+  estado           String?   @db.VarChar
+
+  // Relaciones
+  direccion Direccion? @relation(fields: [id_direccion], references: [id_direccion])
+  usuario   Usuario?   @relation(fields: [id_usuario], references: [id_user])
+
+  @@map("historias_comentarios")
+}
+
+model ComentarioPre {
+  id_coment     String    @id @default(uuid()) @db.Uuid
+  comentario    String?   @db.VarChar
+  categoria     String?   @db.VarChar
+  tipo_feedback String?   @db.VarChar
+  prioridad     Int?
+  resuelto      Boolean?  @default(false)
+  creado_por    String?   @db.Uuid
+  created_at    DateTime? @default(now()) @db.Timestamp(6)
+
+  // Relaciones
+  usuario Usuario? @relation(fields: [creado_por], references: [id_user])
+
+  @@map("comentarios_pre")
+}
+
+model Notificacion {
+  id_notificacion String    @id @default(uuid()) @db.Uuid
+  titulo          String?   @db.VarChar
+  mensaje         String?
+  tipo            String?   @db.VarChar
+  leida           Boolean?  @default(false)
+  url_accion      String?
+  id_usuario      String?   @db.Uuid
+  created_at      DateTime? @default(now()) @db.Timestamp(6)
+
+  // Relaciones
+  usuario Usuario? @relation(fields: [id_usuario], references: [id_user])
+
+  @@map("notificaciones")
+}
+
+model ConfiguracionSistema {
+  id_config    String    @id @default(uuid()) @db.Uuid
+  clave        String?   @db.VarChar
+  valor        String?
+  tipo_dato    String?   @db.VarChar
+  descripcion  String?
+  updated_by   String?   @db.Uuid
+  updated_at   DateTime? @db.Timestamp(6)
+
+  // Relaciones
+  usuario_actualizador Usuario? @relation("ConfigUpdatedBy", fields: [updated_by], references: [id_user])
+
+  @@map("configuraciones_sistema")
+}
+
+model Auditoria {
+  id_auditoria     String    @id @default(uuid()) @db.Uuid
+  tabla            String?   @db.VarChar
+  id_registro      String?
+  accion           String?   @db.VarChar
+  datos_anteriores Json?     @db.JsonB
+  datos_nuevos     Json?     @db.JsonB
+  id_usuario       String?   @db.Uuid
+  ip_address       String?   @db.Inet
+  user_agent       String?
+  created_at       DateTime? @default(now()) @db.Timestamp(6)
+
+  // Relaciones
+  usuario Usuario? @relation(fields: [id_usuario], references: [id_user])
+
+  @@map("auditoria")
+}
