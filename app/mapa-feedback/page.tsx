@@ -195,6 +195,27 @@ const handleSubmitFeedbackSimplificado = async (
   try {
     console.log("[v0] Enviando feedback simplificado a la base de datos...")
 
+    const isValidUUID = (uuid: string) => {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      return uuidRegex.test(uuid)
+    }
+
+    let userId = user?.id
+
+    // Si el usuario no tiene un UUID válido, usar el UUID del admin por defecto
+    if (!userId || !isValidUUID(userId)) {
+      console.log("[v0] Usuario sin UUID válido, usando admin por defecto. User ID actual:", userId)
+      userId = "550e8400-e29b-41d4-a716-446655440001"
+
+      // Si el usuario tiene un ID inválido, limpiar localStorage para forzar re-login
+      if (user?.id && !isValidUUID(user.id)) {
+        console.log("[v0] Limpiando datos de usuario con UUID inválido")
+        localStorage.removeItem("geovision_user")
+      }
+    }
+
+    console.log("[v0] Usando UUID para comentario:", userId)
+
     const comentarioPredefinido = comentariosPredefinidos.find((c: any) => c.comentario === comentarioSeleccionado)
 
     const response = await fetch("/api/comentarios", {
@@ -207,7 +228,7 @@ const handleSubmitFeedbackSimplificado = async (
         tipo_feedback: comentarioPredefinido?.tipo_feedback || "informacion",
         categoria: comentarioPredefinido?.categoria || "otros",
         direccion_id: selectedFeature.properties.address?.id_direccion,
-        creado_por: user?.id || "550e8400-e29b-41d4-a716-446655440001", // Default to admin UUID if no user
+        creado_por: userId,
       }),
     })
 
