@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { MapPin, MessageSquare, Search, Filter, ChevronUp, ChevronDown, X } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
+import { isValidUUID, validateAndFixUUID } from "@/lib/utils/uuid"
 
 // Importación dinámica para evitar problemas de SSR con Leaflet
 const MapComponent = dynamic(() => import("@/components/map-component"), {
@@ -195,26 +196,15 @@ const handleSubmitFeedbackSimplificado = async (
   try {
     console.log("[v0] Enviando feedback simplificado a la base de datos...")
 
-    const isValidUUID = (uuid: string) => {
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-      return uuidRegex.test(uuid)
+    const userId = validateAndFixUUID(user?.id)
+
+    // Si el usuario original tenía un ID inválido, limpiar localStorage
+    if (user?.id && !isValidUUID(user.id)) {
+      console.log("[v0] Limpiando datos de usuario con UUID inválido")
+      localStorage.removeItem("geovision_user")
     }
 
-    let userId = user?.id
-
-    // Si el usuario no tiene un UUID válido, usar el UUID del admin por defecto
-    if (!userId || !isValidUUID(userId)) {
-      console.log("[v0] Usuario sin UUID válido, usando admin por defecto. User ID actual:", userId)
-      userId = "550e8400-e29b-41d4-a716-446655440001"
-
-      // Si el usuario tiene un ID inválido, limpiar localStorage para forzar re-login
-      if (user?.id && !isValidUUID(user.id)) {
-        console.log("[v0] Limpiando datos de usuario con UUID inválido")
-        localStorage.removeItem("geovision_user")
-      }
-    }
-
-    console.log("[v0] Usando UUID para comentario:", userId)
+    console.log("[v0] Usando UUID validado para comentario:", userId)
 
     const comentarioPredefinido = comentariosPredefinidos.find((c: any) => c.comentario === comentarioSeleccionado)
 

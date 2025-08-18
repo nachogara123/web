@@ -1,5 +1,6 @@
 import { neon } from "@neondatabase/serverless"
 import { getDatabaseUrl } from "../database"
+import { isValidUUID, DEFAULT_ADMIN_UUID } from "../utils/uuid"
 
 const sql = neon(getDatabaseUrl())
 
@@ -71,9 +72,17 @@ export class ComentarioService {
     creado_por?: string
   }): Promise<ComentarioPre> {
     try {
+      const validCreadoPor = isValidUUID(datos.creado_por) ? datos.creado_por : DEFAULT_ADMIN_UUID
+
+      if (datos.creado_por !== validCreadoPor) {
+        console.warn(
+          `[v0] UUID creado_por inválido: "${datos.creado_por}", usando UUID por defecto: "${validCreadoPor}"`,
+        )
+      }
+
       const result = await sql`
         INSERT INTO comentarios_pre (comentario, tipo_feedback, categoria, creado_por)
-        VALUES (${datos.comentario}, ${datos.tipo_feedback || null}, ${datos.categoria || null}, ${datos.creado_por || null})
+        VALUES (${datos.comentario}, ${datos.tipo_feedback || null}, ${datos.categoria || null}, ${validCreadoPor})
         RETURNING *
       `
       return result[0]
@@ -85,9 +94,19 @@ export class ComentarioService {
 
   static async asignarADireccion(comentarioId: string, direccionId: number, usuarioId: string): Promise<void> {
     try {
+      if (!isValidUUID(comentarioId)) {
+        throw new Error(`UUID de comentario inválido: ${comentarioId}`)
+      }
+
+      const validUsuarioId = isValidUUID(usuarioId) ? usuarioId : DEFAULT_ADMIN_UUID
+
+      if (usuarioId !== validUsuarioId) {
+        console.warn(`[v0] UUID de usuario inválido: "${usuarioId}", usando UUID por defecto: "${validUsuarioId}"`)
+      }
+
       await sql`
         INSERT INTO historias_comentarios (id_comentario, id_direccion, id_usuario, fecha_comentario)
-        VALUES (${comentarioId}, ${direccionId}, ${usuarioId}, NOW())
+        VALUES (${comentarioId}, ${direccionId}, ${validUsuarioId}, NOW())
       `
     } catch (error) {
       console.error("Error asignando comentario:", error)

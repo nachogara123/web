@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { isValidUUID } from "@/lib/utils/uuid"
 
 export type UserRole = "admin" | "supervisor" | "ejecutivo"
 
@@ -107,10 +108,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const storedUser = localStorage.getItem("geovision_user")
     if (storedUser) {
-      const userData = JSON.parse(storedUser)
-      setUser(userData)
-      if (userData.role === "admin") {
-        setAdminModeState("admin")
+      try {
+        const userData = JSON.parse(storedUser)
+        if (userData && isValidUUID(userData.id)) {
+          setUser(userData)
+          if (userData.role === "admin") {
+            setAdminModeState("admin")
+          }
+        } else {
+          console.warn("[v0] Usuario con UUID inválido en localStorage, limpiando...")
+          localStorage.removeItem("geovision_user")
+        }
+      } catch (error) {
+        console.error("[v0] Error parseando usuario de localStorage:", error)
+        localStorage.removeItem("geovision_user")
       }
     }
     setIsLoading(false)

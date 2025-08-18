@@ -1,13 +1,20 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getDatabaseUrl } from "@/lib/database"
 import { neon } from "@neondatabase/serverless"
+import { isValidUUID, DEFAULT_USER_UUID } from "@/lib/utils/uuid"
 
 export async function POST(request: NextRequest) {
   try {
     const { usuario_id, latitud, longitud, precision_metros, velocidad_kmh, direccion_grados } = await request.json()
 
-    if (!usuario_id || !latitud || !longitud) {
-      return NextResponse.json({ error: "Faltan datos requeridos: usuario_id, latitud, longitud" }, { status: 400 })
+    if (!latitud || !longitud) {
+      return NextResponse.json({ error: "Faltan datos requeridos: latitud, longitud" }, { status: 400 })
+    }
+
+    const validUsuarioId = isValidUUID(usuario_id) ? usuario_id : DEFAULT_USER_UUID
+
+    if (usuario_id !== validUsuarioId) {
+      console.warn(`[v0] UUID de usuario inválido: "${usuario_id}", usando UUID por defecto: "${validUsuarioId}"`)
     }
 
     const sql = neon(getDatabaseUrl())
@@ -21,7 +28,7 @@ export async function POST(request: NextRequest) {
         velocidad_kmh,
         direccion_grados
       ) VALUES (
-        ${usuario_id},
+        ${validUsuarioId},
         NOW(),
         ST_SetSRID(ST_MakePoint(${longitud}, ${latitud}), 4326),
         ${precision_metros || null},
@@ -31,7 +38,12 @@ export async function POST(request: NextRequest) {
       RETURNING id_historial
     `
 
-    console.log("[v0] Ubicación de usuario guardada:", { usuario_id, latitud, longitud, precision_metros })
+    console.log("[v0] Ubicación de usuario guardada:", {
+      usuario_id: validUsuarioId,
+      latitud,
+      longitud,
+      precision_metros,
+    })
 
     return NextResponse.json({
       success: true,
@@ -60,6 +72,10 @@ export async function GET(request: NextRequest) {
 
     let query
     if (usuario_id) {
+      if (!isValidUUID(usuario_id)) {
+        return NextResponse.json({ error: "UUID de usuario inválido" }, { status: 400 })
+      }
+
       query = sql`
         SELECT 
           h.id_historial,

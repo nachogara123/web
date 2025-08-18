@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { MapPin, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { validateAndFixUUID } from "@/lib/utils/uuid"
 
 interface GeolocationButtonProps {
   userId: string
@@ -32,13 +33,21 @@ export default function GeolocationButton({ userId, onLocationSaved, className }
         try {
           const { latitude, longitude, accuracy, speed, heading } = position.coords
 
+          const validUserId = validateAndFixUUID(userId)
+
+          if (userId !== validUserId) {
+            console.warn(
+              `[v0] UUID de usuario inválido en geolocalización: "${userId}", usando UUID válido: "${validUserId}"`,
+            )
+          }
+
           const response = await fetch("/api/ubicaciones-equipo", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              usuario_id: userId,
+              usuario_id: validUserId,
               latitud: latitude,
               longitud: longitude,
               precision_metros: accuracy,
