@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { MapPin, MessageSquare, Search, Filter, ChevronUp, ChevronDown, Calendar, User, MapIcon } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
@@ -71,6 +70,21 @@ interface MapFeature {
   feedback?: ComentarioReal[]
 }
 
+const comentariosPredefinidos = [
+  "Dirección verificada correctamente",
+  "Problema de acceso al inmueble",
+  "Coordenadas incorrectas",
+  "Falta información de contacto",
+  "Requiere revisión técnica",
+  "Estado de la infraestructura deficiente",
+  "Acceso restringido por seguridad",
+  "Información actualizada exitosamente",
+  "Requiere coordinación con propietario",
+  "Problema de conectividad en la zona",
+  "Mantenimiento preventivo necesario",
+  "Documentación incompleta",
+]
+
 const tiposFeedback = [
   { value: "issue", label: "Problema", color: "bg-red-100 text-red-800" },
   { value: "suggestion", label: "Sugerencia", color: "bg-blue-100 text-blue-800" },
@@ -103,6 +117,9 @@ export default function MapaFeedbackPage() {
   const [filterCanal, setFilterCanal] = useState<string>("all")
   const [showFilters, setShowFilters] = useState(true)
   const [comentariosExistentes, setComentariosExistentes] = useState<ComentarioReal[]>([])
+
+  const [filterClasificacion, setFilterClasificacion] = useState<string>("all")
+  const [filterComuna, setFilterComuna] = useState<string>("all")
 
   const fetchDirecciones = async () => {
     try {
@@ -197,13 +214,21 @@ export default function MapaFeedbackPage() {
 
     const matchesEstado = filterEstado === "all" || address.estado_nombre === filterEstado
     const matchesCanal = filterCanal === "all" || address.canal_nombre === filterCanal
+    const matchesClasificacion = filterClasificacion === "all" || address.clasificacion_nombre === filterClasificacion
+    const matchesComuna = filterComuna === "all" || address.comuna_nombre === filterComuna
 
-    return matchesSearch && matchesEstado && matchesCanal
+    return matchesSearch && matchesEstado && matchesCanal && matchesClasificacion && matchesComuna
   })
 
   const handleFeatureSelect = async (feature: MapFeature | null) => {
+    if (!feature) {
+      setSelectedFeature(null)
+      setIsDialogOpen(false)
+      return
+    }
+
     setSelectedFeature(feature)
-    if (feature && feature.properties.address) {
+    if (feature.properties.address) {
       const comentarios = await fetchExistingComments(feature.properties.address.id_direccion)
       setSelectedFeature({
         ...feature,
@@ -276,6 +301,8 @@ export default function MapaFeedbackPage() {
 
   const estadosUnicos = [...new Set(direcciones.map((d) => d.estado_nombre).filter(Boolean))]
   const canalesUnicos = [...new Set(direcciones.map((d) => d.canal_nombre).filter(Boolean))]
+  const clasificacionesUnicas = [...new Set(direcciones.map((d) => d.clasificacion_nombre).filter(Boolean))]
+  const comunasUnicas = [...new Set(direcciones.map((d) => d.comuna_nombre).filter(Boolean))]
 
   return (
     <div className="pt-16 p-6 space-y-6">
@@ -307,7 +334,7 @@ export default function MapaFeedbackPage() {
             <CardDescription>Busca y filtra direcciones para feedback</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="space-y-2">
                 <Label>Buscar</Label>
                 <div className="relative">
@@ -354,6 +381,40 @@ export default function MapaFeedbackPage() {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="space-y-2">
+                <Label>Clasificación</Label>
+                <Select value={filterClasificacion} onValueChange={setFilterClasificacion}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las clasificaciones</SelectItem>
+                    {clasificacionesUnicas.map((clasificacion) => (
+                      <SelectItem key={clasificacion} value={clasificacion}>
+                        {clasificacion}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Comuna</Label>
+                <Select value={filterComuna} onValueChange={setFilterComuna}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las comunas</SelectItem>
+                    {comunasUnicas.map((comuna) => (
+                      <SelectItem key={comuna} value={comuna}>
+                        {comuna}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="mt-4 pt-4 border-t flex items-center justify-between">
@@ -367,6 +428,8 @@ export default function MapaFeedbackPage() {
                   setSearchTerm("")
                   setFilterEstado("all")
                   setFilterCanal("all")
+                  setFilterClasificacion("all")
+                  setFilterComuna("all")
                 }}
               >
                 Limpiar Filtros
@@ -376,13 +439,14 @@ export default function MapaFeedbackPage() {
         </Card>
       )}
 
-      <Card className="shadow-lg">
+      <Card className="shadow-xl border-2 border-gray-100">
         <CardContent className="p-0">
           {loading ? (
-            <div className="h-[600px] flex items-center justify-center bg-gray-100">
+            <div className="h-[600px] flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-600">Cargando direcciones...</p>
+                <p className="text-gray-600 font-medium">Cargando direcciones con auto zoom...</p>
+                <p className="text-sm text-gray-500 mt-2">Haz clic en un punto para agregar feedback</p>
               </div>
             </div>
           ) : (
@@ -399,17 +463,17 @@ export default function MapaFeedbackPage() {
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-2xl mx-auto top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-blue-600" />
+        <DialogContent className="sm:max-w-3xl mx-auto top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999] max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="pb-4 border-b">
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <MapPin className="h-6 w-6 text-blue-600" />
               {selectedFeature?.name}
             </DialogTitle>
-            <DialogDescription>{selectedFeature?.description}</DialogDescription>
+            <DialogDescription className="text-base">{selectedFeature?.description}</DialogDescription>
           </DialogHeader>
 
           {selectedFeature && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {selectedFeature.properties.address && (
                 <div className="p-4 bg-gray-50 rounded-lg space-y-3">
                   <div className="grid grid-cols-2 gap-4">
@@ -474,17 +538,17 @@ export default function MapaFeedbackPage() {
                 </div>
               )}
 
-              <div className="space-y-4 p-4 border rounded-lg">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
-                  Agregar Feedback
+              <div className="space-y-4 p-6 border-2 border-blue-100 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50">
+                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <MessageSquare className="h-6 w-6 text-blue-600" />
+                  Agregar Feedback Rápido
                 </h3>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Tipo de Feedback *</Label>
+                    <Label className="text-sm font-semibold">Tipo de Feedback *</Label>
                     <Select value={tipoFeedback} onValueChange={setTipoFeedback}>
-                      <SelectTrigger>
+                      <SelectTrigger className="border-2 border-gray-200 focus:border-blue-500">
                         <SelectValue placeholder="Selecciona tipo..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -500,9 +564,9 @@ export default function MapaFeedbackPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Categoría</Label>
+                    <Label className="text-sm font-semibold">Categoría</Label>
                     <Select value={categoriaFeedback} onValueChange={setCategoriaFeedback}>
-                      <SelectTrigger>
+                      <SelectTrigger className="border-2 border-gray-200 focus:border-blue-500">
                         <SelectValue placeholder="Selecciona categoría..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -517,20 +581,28 @@ export default function MapaFeedbackPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Comentario *</Label>
-                  <Textarea
-                    placeholder="Describe tu feedback..."
-                    value={comentarioTexto}
-                    onChange={(e) => setComentarioTexto(e.target.value)}
-                    rows={3}
-                  />
+                  <Label className="text-sm font-semibold">Comentario Rápido *</Label>
+                  <Select value={comentarioTexto} onValueChange={setComentarioTexto}>
+                    <SelectTrigger className="border-2 border-gray-200 focus:border-blue-500">
+                      <SelectValue placeholder="Selecciona un comentario predefinido..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {comentariosPredefinidos.map((comentario) => (
+                        <SelectItem key={comentario} value={comentario}>
+                          {comentario}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-500 mt-1">Selecciona un comentario predefinido para mayor rapidez</p>
                 </div>
 
                 <Button
                   onClick={handleSubmitFeedback}
                   disabled={!comentarioTexto.trim() || !tipoFeedback}
-                  className="w-full"
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 rounded-lg shadow-lg transition-all duration-200"
                 >
+                  <MessageSquare className="mr-2 h-4 w-4" />
                   Enviar Feedback a Base de Datos
                 </Button>
               </div>
